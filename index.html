@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Office Hybrid Schedule Manager</title>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --office-bg: #dcfce7;
+            --office-text: #166534;
+            --home-bg: #f1f5f9;
+            --home-text: #475569;
+            --border: #e2e8f0;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background-color: #f8fafc;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 1050px;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 1rem;
+        }
+
+        .controls { display: flex; gap: 10px; flex-wrap: wrap; }
+
+        button {
+            padding: 10px 16px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+            transition: 0.2s;
+        }
+
+        .btn-gen { background: var(--primary); color: white; }
+        .btn-wa { background: #25d366; color: white; }
+        .btn-mail { background: #334155; color: white; }
+        .btn-sync { background: #ea4335; color: white; }
+        button:hover { opacity: 0.9; transform: translateY(-1px); }
+
+        .table-area { background: white; padding: 15px; border-radius: 8px; }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+
+        th {
+            background: #f8fafc;
+            padding: 12px;
+            border: 1px solid var(--border);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            color: #64748b;
+            letter-spacing: 0.05em;
+        }
+
+        td { padding: 8px; border: 1px solid var(--border); text-align: center; }
+
+        .name-cell {
+            text-align: left;
+            font-weight: 700;
+            width: 180px;
+            padding-left: 15px;
+            background: #fdfdfd;
+            color: #1e293b;
+        }
+
+        .dept-label { font-size: 0.65rem; font-weight: 400; color: #94a3b8; display: block; margin-top: 2px; }
+
+        .badge {
+            display: inline-block;
+            padding: 10px 0;
+            width: 90%;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            user-select: none;
+            transition: 0.2s;
+        }
+
+        .status-office { background: var(--office-bg); color: var(--office-text); border: 1px solid #bbf7d0; }
+        .status-home { background: var(--home-bg); color: var(--home-text); border: 1px solid #e2e8f0; }
+
+        /* History Section */
+        .history-section {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 2px solid var(--border);
+            width: 100%;
+        }
+
+        .history-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .history-card {
+            background: #fff;
+            border: 1px solid var(--border);
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .history-card:hover {
+            border-color: var(--primary);
+            background: #f0f7ff;
+        }
+
+        .history-card.active {
+            border-color: var(--primary);
+            background: #eff6ff;
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+        }
+
+        .history-card i { color: var(--primary); }
+        .history-info { font-size: 0.85rem; font-weight: 700; color: #334155; }
+        .history-sub { font-size: 0.7rem; color: #94a3b8; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <div>
+            <h1 id="display-week-title">Staff Scheduler</h1>
+            <small id="display-date-range" style="font-weight: 700; color: var(--primary);"></small>
+        </div>
+        <div class="controls">
+            <button class="btn-gen" onclick="generateNew()"><i data-lucide="refresh-cw" size="16"></i> Regenerate</button>
+            <button class="btn-wa" onclick="shareWhatsApp()"><i data-lucide="image" size="16"></i> Send to WhatsApp</button>
+            <button class="btn-mail" onclick="shareEmail()"><i data-lucide="mail" size="16"></i> Email</button>
+            <button class="btn-sync" onclick="syncToSheets()"><i data-lucide="table" size="16"></i> Sync</button>
+        </div>
+    </header>
+
+    <div id="capture-zone" class="table-area">
+        <table>
+            <thead>
+                <tr>
+                    <th>Staff Name</th>
+                    <th>Monday</th>
+                    <th>Tuesday</th>
+                    <th>Wednesday</th>
+                    <th>Thursday</th>
+                    <th>Friday</th>
+                </tr>
+            </thead>
+            <tbody id="schedule-body"></tbody>
+        </table>
+    </div>
+
+    <div class="history-section">
+        <h3 style="margin:0; font-size: 1rem; color: #1e293b;">Last 4 Weeks (Click to preview/share)</h3>
+        <div id="history-container" class="history-grid"></div>
+    </div>
+</div>
+
+<script>
+    // --- SETTINGS & STAFF ---
+    const EMAIL_CONFIG = { to: "management@office.com", cc: "hr@office.com" };
+    const STAFF = [
+        { name: "Blessingjoy", dept: "University" },
+        { name: "Esther", dept: "University" },
+        { name: "Paschaline", dept: "University" },
+        { name: "Deborah", dept: "Investment" },
+        { name: "Ikechukwu", dept: "Investment" },
+        { name: "Ayo", dept: "Investment" },
+        { name: "Lizzy", dept: "Investment" },
+        { name: "Juliana", dept: "Investment" }
+    ];
+    const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+
+    let currentWeekKey = "";
+    let currentData = {};
+
+    // --- DATE HANDLER ---
+    // Standardizes dates to current or relative week (June 8 - 12, 2026 format)
+    function getWeekKey(offsetWeeks = 0) {
+        const d = new Date();
+        const day = d.getDay();
+        const diff = d.getDate() - day + (day === 0 ? -6 : 1) + (offsetWeeks * 7);
+        const monday = new Date(d.setDate(diff));
+        const friday = new Date(d.setDate(diff + 4));
+        
+        const opt = { month: 'long', day: 'numeric' };
+        return `${monday.toLocaleDateString('en-US', opt)} - ${friday.toLocaleDateString('en-US', {day:'numeric'})}, ${friday.getFullYear()}`;
+    }
+
+    // --- SCHEDULING LOGIC ---
+    function generateNew() {
+        currentWeekKey = getWeekKey(0); // Always generate for current week
+        currentData = {};
+
+        // Default everyone to Office on Mon/Fri, and "Home" elsewhere
+        STAFF.forEach(s => {
+            currentData[s.name] = { 
+                Monday: "Office", Tuesday: "Home", Wednesday: "Home", Thursday: "Home", Friday: "Office" 
+            };
+        });
+
+        const midDays = ["Tuesday", "Wednesday", "Thursday"];
+
+        // University Dept logic: 1 person in office per day (Tue, Wed, Thu)
+        const shuffledUnivDays = [...midDays].sort(() => Math.random() - 0.5);
+        STAFF.filter(s => s.dept === "University").forEach((s, i) => {
+            currentData[s.name][shuffledUnivDays[i]] = "Office";
+        });
+
+        // Investment Dept logic: Distributed coverage (at least 1-2 per day)
+        const investPool = ["Tuesday", "Wednesday", "Thursday", "Tuesday", "Wednesday"].sort(() => Math.random() - 0.5);
+        STAFF.filter(s => s.dept === "Investment").forEach((s, i) => {
+            currentData[s.name][investPool[i]] = "Office";
+        });
+
+        saveAndRender();
+    }
+
+    function saveAndRender() {
+        // Save to LocalStorage keyed by the week string (one per week)
+        let history = JSON.parse(localStorage.getItem('hybrid_records_v2') || "{}");
+        history[currentWeekKey] = { data: currentData, timestamp: new Date().getTime() };
+        localStorage.setItem('hybrid_records_v2', JSON.stringify(history));
+
+        renderTable();
+        renderHistory();
+    }
+
+    function renderTable() {
+        document.getElementById('display-date-range').innerText = currentWeekKey;
+        const tbody = document.getElementById('schedule-body');
+        tbody.innerHTML = "";
+
+        STAFF.forEach(person => {
+            const row = document.createElement('tr');
+            row.innerHTML = `<td class="name-cell">${person.name}<span class="dept-label">${person.dept}</span></td>`;
+            
+            DAYS.forEach(day => {
+                const status = currentData[person.name][day];
+                const td = document.createElement('td');
+                const badge = document.createElement('div');
+                badge.className = `badge ${status === 'Office' ? 'status-office' : 'status-home'}`;
+                badge.innerText = status;
+                
+                // Allow manual overrides
+                badge.onclick = () => {
+                    currentData[person.name][day] = (status === 'Office' ? 'Home' : 'Office');
+                    saveAndRender();
+                };
+                
+                td.appendChild(badge);
+                row.appendChild(td);
+            });
+            tbody.appendChild(row);
+        });
+        lucide.createIcons();
+    }
+
+    function renderHistory() {
+        const container = document.getElementById('history-container');
+        container.innerHTML = "";
+        const history = JSON.parse(localStorage.getItem('hybrid_records_v2') || "{}");
+        
+        // Sort by timestamp and take last 4 weeks
+        const sortedKeys = Object.keys(history)
+            .sort((a, b) => history[b].timestamp - history[a].timestamp)
+            .slice(0, 4);
+
+        sortedKeys.forEach(key => {
+            const card = document.createElement('div');
+            card.className = `history-card ${key === currentWeekKey ? 'active' : ''}`;
+            card.onclick = () => loadFromHistory(key);
+            card.innerHTML = `
+                <i data-lucide="calendar-check"></i>
+                <div>
+                    <div class="history-info">${key}</div>
+                    <div class="history-sub">Click to preview</div>
+                </div>
+            `;
+            container.appendChild(card);
+        });
+        lucide.createIcons();
+    }
+
+    function loadFromHistory(key) {
+        const history = JSON.parse(localStorage.getItem('hybrid_records_v2') || "{}");
+        if (history[key]) {
+            currentWeekKey = key;
+            currentData = history[key].data;
+            renderTable();
+            renderHistory();
+        }
+    }
+
+    // --- SHARING LOGIC ---
+
+    async function shareWhatsApp() {
+        const area = document.getElementById('capture-zone');
+        // Capture the table as a clean image
+        const canvas = await html2canvas(area, { scale: 2, backgroundColor: "#ffffff" });
+        canvas.toBlob(async (blob) => {
+            const fileName = `Schedule_${currentWeekKey.replace(/ /g,'_')}.png`;
+            const file = new File([blob], fileName, { type: 'image/png' });
+            
+            // Check if Web Share API supports file sharing
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                try {
+                    await navigator.share({
+                        files: [file],
+                        title: 'Hybrid Schedule',
+                        text: `Hybrid Schedule for ${currentWeekKey}`
+                    });
+                } catch (err) {
+                    console.error("Share failed", err);
+                }
+            } else {
+                // Fallback: Download the image
+                const link = document.createElement('a');
+                link.download = fileName;
+                link.href = URL.createObjectURL(blob);
+                link.click();
+                alert("Image downloaded. You can now attach it to WhatsApp manually.");
+            }
+        });
+    }
+
+    function shareEmail() {
+        const subject = encodeURIComponent(`Hybrid Schedule for ${currentWeekKey}`);
+        let body = `Find below the office schedule for the week of ${currentWeekKey}:\n\n`;
+        DAYS.forEach(day => {
+            const office = STAFF.filter(s => currentData[s.name][day] === 'Office').map(s => s.name);
+            body += `${day.toUpperCase()}: ${office.join(", ")}\n`;
+        });
+        window.location.href = `mailto:${EMAIL_CONFIG.to}?cc=${EMAIL_CONFIG.cc}&subject=${subject}&body=${encodeURIComponent(body)}`;
+    }
+
+    function syncToSheets() {
+        alert("Syncing " + currentWeekKey + " to Google Sheets...");
+        // Placeholder for Google Apps Script fetch call
+    }
+
+    // Initialize on load
+    window.onload = () => {
+        const history = JSON.parse(localStorage.getItem('hybrid_records_v2') || "{}");
+        const keys = Object.keys(history);
+        if (keys.length > 0) {
+            const latest = keys.sort((a,b) => history[b].timestamp - history[a].timestamp)[0];
+            loadFromHistory(latest);
+        } else {
+            generateNew();
+        }
+    };
+</script>
+
+</body>
+</html>
