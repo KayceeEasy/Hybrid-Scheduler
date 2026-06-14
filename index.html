@@ -16,6 +16,7 @@
         .btn-gen { background: var(--primary); color: white; }
         .btn-wa { background: #25d366; color: white; }
         .btn-mail { background: #ea4335; color: white; }
+        .btn-dl { background: #64748b; color: white; }
         .table-area { background: white; padding: 15px; border-radius: 8px; }
         table { width: 100%; border-collapse: collapse; table-layout: fixed; }
         th { background: #f8fafc; padding: 12px; border: 1px solid var(--border); font-size: 0.75rem; text-transform: uppercase; color: #64748b; }
@@ -46,9 +47,10 @@
             <div id="sync-status"><i data-lucide="cloud-off" size="14"></i> Offline</div>
         </div>
         <div class="controls">
-            <button class="btn-gen" onclick="generateNew()"><i data-lucide="calendar-plus" size="16"></i> New Week</button>
-            <button class="btn-wa" onclick="shareWhatsApp()"><i data-lucide="image" size="16"></i> WhatsApp Image</button>
-            <button class="btn-mail" onclick="shareGmail()"><i data-lucide="mail" size="16"></i> Send via Gmail</button>
+            <button class="btn-gen" onclick="generateNew()"><i data-lucide="refresh-cw" size="16"></i> Regenerate</button>
+            <button class="btn-dl" onclick="downloadImage()"><i data-lucide="download" size="16"></i> Download</button>
+            <button class="btn-wa" onclick="shareWhatsApp()"><i data-lucide="image" size="16"></i> WhatsApp</button>
+            <button class="btn-mail" onclick="shareGmail()"><i data-lucide="mail" size="16"></i> Gmail</button>
         </div>
     </header>
 
@@ -142,7 +144,6 @@
         lucide.createIcons();
     }
 
-    // --- 3. AUTOMATED CLOUD SYNC ---
     async function autoSync() {
         const statusEl = document.getElementById('sync-status');
         statusEl.className = "syncing";
@@ -195,7 +196,17 @@
         });
     }
 
-    // --- 4. IMPROVED SHARING ---
+    // --- 4. SHARING & DOWNLOAD ---
+
+    async function downloadImage() {
+        const canvas = await html2canvas(document.getElementById('capture-zone'), { scale: 2 });
+        const dataUrl = canvas.toDataURL("image/png");
+        const a = document.createElement('a');
+        a.download = `Schedule_${currentWeekKey.replace(/ /g, '_')}.png`;
+        a.href = dataUrl;
+        a.click();
+    }
+
     async function shareWhatsApp() {
         const canvas = await html2canvas(document.getElementById('capture-zone'), { scale: 2 });
         canvas.toBlob(async blob => {
@@ -203,27 +214,24 @@
             if (navigator.canShare && navigator.canShare({ files: [file] })) {
                 await navigator.share({ files: [file], title: 'Office Schedule', text: `Hybrid Schedule for ${currentWeekKey}` });
             } else {
-                const a = document.createElement('a'); a.download = `Schedule.png`; a.href = URL.createObjectURL(blob); a.click();
+                downloadImage();
             }
         });
     }
 
-    function shareGmail() {
+    async function shareGmail() {
         const subject = encodeURIComponent(`Hybrid Schedule for ${currentWeekKey}`);
         let bodyText = `Hello Team,\n\nHere is the work schedule for the week of ${currentWeekKey}:\n\n`;
         DAYS.forEach(day => {
             const office = STAFF.filter(s => currentData[s.name][day] === 'Office').map(s => s.name);
             bodyText += `${day.toUpperCase()}: ${office.join(", ")}\n`;
         });
-        bodyText += `\n(I have also downloaded the schedule image. You can drag it into this email body if needed.)`;
 
-        // Direct Gmail Compose URL
-        const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(EMAIL_TO)}&cc=${encodeURIComponent(EMAIL_CC)}&su=${subject}&body=${encodeURIComponent(bodyText)}`;
-        
-        // 1. Download image as backup so user can drag it in
-        shareWhatsApp(); 
-        
+        // 1. Trigger the image download first
+        await downloadImage();
+
         // 2. Open Gmail
+        const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(EMAIL_TO)}&cc=${encodeURIComponent(EMAIL_CC)}&su=${subject}&body=${encodeURIComponent(bodyText)}`;
         window.open(gmailUrl, '_blank');
     }
 
