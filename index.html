@@ -29,10 +29,11 @@
         .history-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 15px; margin-top: 15px; }
         .history-card { background: #fff; border: 1px solid var(--border); padding: 12px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 12px; }
         .history-card.active { border-color: var(--primary); background: #eff6ff; }
-        
         #sync-status { font-size: 0.75rem; font-weight: 600; display: flex; align-items: center; gap: 5px; margin-top: 5px; }
         .syncing { color: var(--primary); }
         .synced { color: #166534; }
+        .spin { animation: rotation 2s infinite linear; }
+        @keyframes rotation { from { transform: rotate(0deg); } to { transform: rotate(359deg); } }
     </style>
 </head>
 <body>
@@ -53,7 +54,7 @@
 
     <div id="capture-zone" class="table-area">
         <table>
-            <thead><tr id="table-head-days"><th>Staff Name</th></tr></thead>
+            <thead><tr id="table-head-days"><th>Staff Name</th><!-- Days injected here --></tr></thead>
             <tbody id="schedule-body"></tbody>
         </table>
     </div>
@@ -80,16 +81,31 @@
 
     let currentWeekKey = "";
     let currentData = {};
-    let isInitialLoad = true;
 
     // --- 2. DATE & UI LOGIC ---
+    
+    // UPDATED: Now returns "Monday Date - Friday Date"
     function getWeekRange(offsetWeeks = 0) {
         const d = new Date();
         const day = d.getDay(); 
+        // Find current Sunday
         const diffToSun = d.getDate() - day + (offsetWeeks * 7);
-        const sun = new Date(new Date().setDate(diffToSun));
-        const sat = new Date(new Date().setDate(diffToSun + 6));
-        return `${sun.toLocaleDateString('en-US', {month:'long', day:'numeric'})} - ${sat.toLocaleDateString('en-US', {day:'numeric'})}, ${sat.getFullYear()}`;
+        // Calculate Monday and Friday relative to that Sunday
+        const mon = new Date(new Date().setDate(diffToSun + 1));
+        const fri = new Date(new Date().setDate(diffToSun + 5));
+        
+        return `${mon.toLocaleDateString('en-US', {month:'long', day:'numeric'})} - ${fri.toLocaleDateString('en-US', {day:'numeric'})}, ${fri.getFullYear()}`;
+    }
+
+    function getDayNumbers() {
+        const d = new Date();
+        const day = d.getDay();
+        const diffToSun = d.getDate() - day;
+        // Map Monday (1) through Friday (5)
+        return DAYS.map((name, index) => {
+            const date = new Date(new Date().setDate(diffToSun + index + 1));
+            return date.getDate();
+        });
     }
 
     function generateNew() {
@@ -103,11 +119,16 @@
         STAFF.filter(s => s.dept === "Investment").forEach((s, i) => currentData[s.name][inv[i]] = "Office");
         
         renderTable();
-        autoSync(); // Trigger background sync
+        autoSync();
     }
 
     function renderTable() {
         document.getElementById('display-date-range').innerText = currentWeekKey;
+        
+        const dayNums = getDayNumbers();
+        const thead = document.getElementById('table-head-days');
+        thead.innerHTML = `<th>Staff Name</th>` + DAYS.map((d, i) => `<th>${d} ${dayNums[i]}</th>`).join("");
+
         const tbody = document.getElementById('schedule-body');
         tbody.innerHTML = "";
         STAFF.forEach(person => {
@@ -120,7 +141,7 @@
                 td.onclick = () => {
                     currentData[person.name][day] = (status === 'Office' ? 'Home' : 'Office');
                     renderTable();
-                    autoSync(); // Sync on every manual change
+                    autoSync();
                 };
                 row.appendChild(td);
             });
@@ -133,7 +154,7 @@
     async function autoSync() {
         const statusEl = document.getElementById('sync-status');
         statusEl.className = "syncing";
-        statusEl.innerHTML = `<i data-lucide="refresh-cw" class="spin" size="14"></i> Saving to Cloud...`;
+        statusEl.innerHTML = `<i data-lucide="refresh-cw" class="spin" size="14"></i> Saving...`;
         lucide.createIcons();
 
         try {
@@ -146,8 +167,8 @@
                 })
             });
             statusEl.className = "synced";
-            statusEl.innerHTML = `<i data-lucide="cloud-check" size="14"></i> All changes saved`;
-            loadHistory(false); // Refresh history list silently
+            statusEl.innerHTML = `<i data-lucide="cloud-check" size="14"></i> Cloud Synced`;
+            loadHistory(false); 
         } catch (e) {
             statusEl.innerHTML = `<i data-lucide="alert-circle" size="14"></i> Sync Error`;
         }
@@ -166,11 +187,11 @@
             }
 
             container.innerHTML = "";
-            const currentWeek = getWeekRange(0);
+            const currentWeekDisplay = getWeekRange(0);
             let foundCurrentWeek = false;
 
             history.forEach(item => {
-                if (item.weekKey === currentWeek) foundCurrentWeek = true;
+                if (item.weekKey === currentWeekDisplay) foundCurrentWeek = true;
                 
                 const card = document.createElement('div');
                 card.className = `history-card ${item.weekKey === currentWeekKey ? 'active' : ''}`;
@@ -184,10 +205,9 @@
                 container.appendChild(card);
             });
 
-            // Auto-load current week if it exists, otherwise generate it
             if (updateTable) {
                 if (foundCurrentWeek) {
-                    const currentEntry = history.find(h => h.weekKey === currentWeek);
+                    const currentEntry = history.find(h => h.weekKey === currentWeekDisplay);
                     currentWeekKey = currentEntry.weekKey;
                     currentData = currentEntry.data;
                     renderTable();
@@ -197,7 +217,7 @@
             }
             lucide.createIcons();
         } catch (e) {
-            container.innerText = "Check your Google Script URL configuration.";
+            container.innerText = "Check Google Script URL.";
         }
     }
 
@@ -207,22 +227,21 @@
         });
     }
 
-    // --- 4. SHARING ---
     async function shareWhatsApp() {
         const canvas = await html2canvas(document.getElementById('capture-zone'), { scale: 2 });
         canvas.toBlob(async blob => {
-            const file = new File([blob], `Schedule.png`, { type: 'image/png' });
+            const file = new File([blob], `Schedule_${currentWeekKey.replace(/ /g, '_')}.png`, { type: 'image/png' });
             if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                await navigator.share({ files: [file], title: 'Schedule' });
+                await navigator.share({ files: [file], title: 'Office Schedule', text: `Hybrid Schedule for ${currentWeekKey}` });
             } else {
-                const a = document.createElement('a'); a.download = 'Schedule.png'; a.href = URL.createObjectURL(blob); a.click();
+                const a = document.createElement('a'); a.download = `Schedule_${currentWeekKey}.png`; a.href = URL.createObjectURL(blob); a.click();
             }
         });
     }
 
     function shareEmail() {
         const subject = encodeURIComponent(`Hybrid Schedule for ${currentWeekKey}`);
-        let body = `Hello Team,\n\nHere is the work schedule for ${currentWeekKey}:\n\n`;
+        let body = `Hello Team,\n\nHere is the work schedule for the week of ${currentWeekKey}:\n\n`;
         DAYS.forEach(day => {
             const office = STAFF.filter(s => currentData[s.name][day] === 'Office').map(s => s.name);
             body += `${day.toUpperCase()}: ${office.join(", ")}\n`;
@@ -232,9 +251,5 @@
 
     window.onload = () => loadHistory(true);
 </script>
-<style>
-    .spin { animation: rotation 2s infinite linear; }
-    @keyframes rotation { from { transform: rotate(0deg); } to { transform: rotate(359deg); } }
-</style>
 </body>
 </html>
