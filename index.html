@@ -15,7 +15,7 @@
         button { padding: 10px 16px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 8px; font-size: 0.85rem; transition: 0.2s; }
         .btn-gen { background: var(--primary); color: white; }
         .btn-wa { background: #25d366; color: white; }
-        .btn-mail { background: #334155; color: white; }
+        .btn-mail { background: #ea4335; color: white; }
         .table-area { background: white; padding: 15px; border-radius: 8px; }
         table { width: 100%; border-collapse: collapse; table-layout: fixed; }
         th { background: #f8fafc; padding: 12px; border: 1px solid var(--border); font-size: 0.75rem; text-transform: uppercase; color: #64748b; }
@@ -48,7 +48,7 @@
         <div class="controls">
             <button class="btn-gen" onclick="generateNew()"><i data-lucide="calendar-plus" size="16"></i> New Week</button>
             <button class="btn-wa" onclick="shareWhatsApp()"><i data-lucide="image" size="16"></i> WhatsApp Image</button>
-            <button class="btn-mail" onclick="shareEmail()"><i data-lucide="mail" size="16"></i> Email Team</button>
+            <button class="btn-mail" onclick="shareGmail()"><i data-lucide="mail" size="16"></i> Send via Gmail</button>
         </div>
     </header>
 
@@ -60,7 +60,7 @@
     </div>
 
     <div class="history-section">
-        <h3>Schedule History</h3>
+        <h3>Cloud History (Permanent)</h3>
         <div id="history-container" class="history-grid">Loading cloud data...</div>
     </div>
 </div>
@@ -83,17 +83,12 @@
     let currentData = {};
 
     // --- 2. DATE & UI LOGIC ---
-    
-    // UPDATED: Now returns "Monday Date - Friday Date"
     function getWeekRange(offsetWeeks = 0) {
         const d = new Date();
         const day = d.getDay(); 
-        // Find current Sunday
         const diffToSun = d.getDate() - day + (offsetWeeks * 7);
-        // Calculate Monday and Friday relative to that Sunday
         const mon = new Date(new Date().setDate(diffToSun + 1));
         const fri = new Date(new Date().setDate(diffToSun + 5));
-        
         return `${mon.toLocaleDateString('en-US', {month:'long', day:'numeric'})} - ${fri.toLocaleDateString('en-US', {day:'numeric'})}, ${fri.getFullYear()}`;
     }
 
@@ -101,7 +96,6 @@
         const d = new Date();
         const day = d.getDay();
         const diffToSun = d.getDate() - day;
-        // Map Monday (1) through Friday (5)
         return DAYS.map((name, index) => {
             const date = new Date(new Date().setDate(diffToSun + index + 1));
             return date.getDate();
@@ -117,14 +111,12 @@
         STAFF.filter(s => s.dept === "University").forEach((s, i) => currentData[s.name][mid[i]] = "Office");
         const inv = ["Tuesday", "Wednesday", "Thursday", "Tuesday", "Wednesday"].sort(() => Math.random() - 0.5);
         STAFF.filter(s => s.dept === "Investment").forEach((s, i) => currentData[s.name][inv[i]] = "Office");
-        
         renderTable();
         autoSync();
     }
 
     function renderTable() {
         document.getElementById('display-date-range').innerText = currentWeekKey;
-        
         const dayNums = getDayNumbers();
         const thead = document.getElementById('table-head-days');
         thead.innerHTML = `<th>Staff Name</th>` + DAYS.map((d, i) => `<th>${d} ${dayNums[i]}</th>`).join("");
@@ -156,15 +148,10 @@
         statusEl.className = "syncing";
         statusEl.innerHTML = `<i data-lucide="refresh-cw" class="spin" size="14"></i> Saving...`;
         lucide.createIcons();
-
         try {
             await fetch(SCRIPT_URL, {
                 method: "POST",
-                body: JSON.stringify({
-                    weekKey: currentWeekKey,
-                    timestamp: new Date().toISOString(),
-                    data: currentData
-                })
+                body: JSON.stringify({ weekKey: currentWeekKey, timestamp: new Date().toISOString(), data: currentData })
             });
             statusEl.className = "synced";
             statusEl.innerHTML = `<i data-lucide="cloud-check" size="14"></i> Cloud Synced`;
@@ -180,45 +167,26 @@
         try {
             const resp = await fetch(SCRIPT_URL);
             const history = await resp.json();
-            
-            if (history.length === 0 && updateTable) {
-                generateNew();
-                return;
-            }
-
+            if (history.length === 0 && updateTable) { generateNew(); return; }
             container.innerHTML = "";
             const currentWeekDisplay = getWeekRange(0);
             let foundCurrentWeek = false;
-
             history.forEach(item => {
                 if (item.weekKey === currentWeekDisplay) foundCurrentWeek = true;
-                
                 const card = document.createElement('div');
                 card.className = `history-card ${item.weekKey === currentWeekKey ? 'active' : ''}`;
-                card.onclick = () => {
-                    currentWeekKey = item.weekKey;
-                    currentData = item.data;
-                    renderTable();
-                    updateHistoryUI();
-                };
+                card.onclick = () => { currentWeekKey = item.weekKey; currentData = item.data; renderTable(); updateHistoryUI(); };
                 card.innerHTML = `<i data-lucide="calendar"></i><div><div class="history-info">${item.weekKey}</div><div class="history-sub">Click to load</div></div>`;
                 container.appendChild(card);
             });
-
             if (updateTable) {
                 if (foundCurrentWeek) {
                     const currentEntry = history.find(h => h.weekKey === currentWeekDisplay);
-                    currentWeekKey = currentEntry.weekKey;
-                    currentData = currentEntry.data;
-                    renderTable();
-                } else {
-                    generateNew();
-                }
+                    currentWeekKey = currentEntry.weekKey; currentData = currentEntry.data; renderTable();
+                } else { generateNew(); }
             }
             lucide.createIcons();
-        } catch (e) {
-            container.innerText = "Check Google Script URL.";
-        }
+        } catch (e) { container.innerText = "Check Google Script URL."; }
     }
 
     function updateHistoryUI() {
@@ -227,26 +195,36 @@
         });
     }
 
+    // --- 4. IMPROVED SHARING ---
     async function shareWhatsApp() {
         const canvas = await html2canvas(document.getElementById('capture-zone'), { scale: 2 });
         canvas.toBlob(async blob => {
-            const file = new File([blob], `Schedule_${currentWeekKey.replace(/ /g, '_')}.png`, { type: 'image/png' });
+            const file = new File([blob], `Schedule.png`, { type: 'image/png' });
             if (navigator.canShare && navigator.canShare({ files: [file] })) {
                 await navigator.share({ files: [file], title: 'Office Schedule', text: `Hybrid Schedule for ${currentWeekKey}` });
             } else {
-                const a = document.createElement('a'); a.download = `Schedule_${currentWeekKey}.png`; a.href = URL.createObjectURL(blob); a.click();
+                const a = document.createElement('a'); a.download = `Schedule.png`; a.href = URL.createObjectURL(blob); a.click();
             }
         });
     }
 
-    function shareEmail() {
+    function shareGmail() {
         const subject = encodeURIComponent(`Hybrid Schedule for ${currentWeekKey}`);
-        let body = `Hello Team,\n\nHere is the work schedule for the week of ${currentWeekKey}:\n\n`;
+        let bodyText = `Hello Team,\n\nHere is the work schedule for the week of ${currentWeekKey}:\n\n`;
         DAYS.forEach(day => {
             const office = STAFF.filter(s => currentData[s.name][day] === 'Office').map(s => s.name);
-            body += `${day.toUpperCase()}: ${office.join(", ")}\n`;
+            bodyText += `${day.toUpperCase()}: ${office.join(", ")}\n`;
         });
-        window.location.href = `mailto:${EMAIL_TO}?cc=${EMAIL_CC}&subject=${subject}&body=${encodeURIComponent(body)}`;
+        bodyText += `\n(I have also downloaded the schedule image. You can drag it into this email body if needed.)`;
+
+        // Direct Gmail Compose URL
+        const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(EMAIL_TO)}&cc=${encodeURIComponent(EMAIL_CC)}&su=${subject}&body=${encodeURIComponent(bodyText)}`;
+        
+        // 1. Download image as backup so user can drag it in
+        shareWhatsApp(); 
+        
+        // 2. Open Gmail
+        window.open(gmailUrl, '_blank');
     }
 
     window.onload = () => loadHistory(true);
