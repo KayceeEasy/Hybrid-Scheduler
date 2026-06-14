@@ -3,145 +3,36 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Team Hybrid Scheduler</title>
+    <title>Automated Office Scheduler</title>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
-        :root {
-            --primary: #2563eb;
-            --office-bg: #dcfce7;
-            --office-text: #166534;
-            --home-bg: #f1f5f9;
-            --home-text: #475569;
-            --border: #e2e8f0;
-        }
-
-        body {
-            font-family: 'Inter', -apple-system, sans-serif;
-            background-color: #f8fafc;
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-
-        .container {
-            background: white;
-            padding: 2rem;
-            border-radius: 12px;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-            width: 100%;
-            max-width: 1100px;
-        }
-
-        header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 2rem;
-            border-bottom: 2px solid var(--border);
-            padding-bottom: 1rem;
-        }
-
+        :root { --primary: #2563eb; --office-bg: #dcfce7; --office-text: #166534; --home-bg: #f1f5f9; --home-text: #475569; --border: #e2e8f0; }
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        .container { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); width: 100%; max-width: 1100px; }
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; border-bottom: 2px solid var(--border); padding-bottom: 1rem; }
         .controls { display: flex; gap: 10px; flex-wrap: wrap; }
-
-        button {
-            padding: 10px 16px;
-            border-radius: 8px;
-            border: none;
-            cursor: pointer;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 0.85rem;
-            transition: 0.2s;
-        }
-
+        button { padding: 10px 16px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 8px; font-size: 0.85rem; transition: 0.2s; }
         .btn-gen { background: var(--primary); color: white; }
         .btn-wa { background: #25d366; color: white; }
         .btn-mail { background: #334155; color: white; }
-        .btn-sync { background: #ea4335; color: white; }
-        button:hover { opacity: 0.9; transform: translateY(-1px); }
-
         .table-area { background: white; padding: 15px; border-radius: 8px; }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            table-layout: fixed;
-        }
-
-        th {
-            background: #f8fafc;
-            padding: 12px;
-            border: 1px solid var(--border);
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            color: #64748b;
-            letter-spacing: 0.05em;
-        }
-
+        table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        th { background: #f8fafc; padding: 12px; border: 1px solid var(--border); font-size: 0.75rem; text-transform: uppercase; color: #64748b; }
         td { padding: 8px; border: 1px solid var(--border); text-align: center; }
-
-        .name-cell {
-            text-align: left;
-            font-weight: 700;
-            width: 190px;
-            padding-left: 15px;
-            background: #fdfdfd;
-            color: #1e293b;
-        }
-
-        .dept-label { font-size: 0.65rem; font-weight: 400; color: #94a3b8; display: block; margin-top: 2px; }
-
-        .badge {
-            display: inline-block;
-            padding: 10px 0;
-            width: 90%;
-            border-radius: 6px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            cursor: pointer;
-            user-select: none;
-            transition: 0.2s;
-        }
-
+        .name-cell { text-align: left; font-weight: 700; width: 190px; padding-left: 15px; background: #fdfdfd; }
+        .dept-label { font-size: 0.65rem; font-weight: 400; color: #94a3b8; display: block; }
+        .badge { display: inline-block; padding: 10px 0; width: 90%; border-radius: 6px; font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: 0.2s; }
         .status-office { background: var(--office-bg); color: var(--office-text); border: 1px solid #bbf7d0; }
         .status-home { background: var(--home-bg); color: var(--home-text); border: 1px solid #e2e8f0; }
-
-        .history-section {
-            margin-top: 30px;
-            padding-top: 20px;
-            border-top: 2px solid var(--border);
-            width: 100%;
-        }
-
-        .history-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-            gap: 15px;
-            margin-top: 15px;
-        }
-
-        .history-card {
-            background: #fff;
-            border: 1px solid var(--border);
-            padding: 12px;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: 0.2s;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .history-card:hover { border-color: var(--primary); background: #f0f7ff; }
-        .history-card.active { border-color: var(--primary); background: #eff6ff; box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1); }
-        .history-card i { color: var(--primary); }
-        .history-info { font-size: 0.85rem; font-weight: 700; color: #334155; }
-        .history-sub { font-size: 0.7rem; color: #94a3b8; }
+        .history-section { margin-top: 30px; padding-top: 20px; border-top: 2px solid var(--border); width: 100%; }
+        .history-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 15px; margin-top: 15px; }
+        .history-card { background: #fff; border: 1px solid var(--border); padding: 12px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 12px; }
+        .history-card.active { border-color: var(--primary); background: #eff6ff; }
+        
+        #sync-status { font-size: 0.75rem; font-weight: 600; display: flex; align-items: center; gap: 5px; margin-top: 5px; }
+        .syncing { color: var(--primary); }
+        .synced { color: #166534; }
     </style>
 </head>
 <body>
@@ -149,149 +40,88 @@
 <div class="container">
     <header>
         <div>
-            <h1 id="display-week-title">Hybrid Work Schedule</h1>
+            <h1>Hybrid Work Schedule</h1>
             <small id="display-date-range" style="font-weight: 700; color: var(--primary);"></small>
+            <div id="sync-status"><i data-lucide="cloud-off" size="14"></i> Offline</div>
         </div>
         <div class="controls">
             <button class="btn-gen" onclick="generateNew()"><i data-lucide="calendar-plus" size="16"></i> New Week</button>
             <button class="btn-wa" onclick="shareWhatsApp()"><i data-lucide="image" size="16"></i> WhatsApp Image</button>
             <button class="btn-mail" onclick="shareEmail()"><i data-lucide="mail" size="16"></i> Email Team</button>
-            <button class="btn-sync" onclick="syncToSheets()"><i data-lucide="table" size="16"></i> Sync</button>
         </div>
     </header>
 
     <div id="capture-zone" class="table-area">
         <table>
-            <thead>
-                <tr id="table-head-days">
-                    <th>Staff Name</th>
-                    <!-- Headers injected by JS -->
-                </tr>
-            </thead>
+            <thead><tr id="table-head-days"><th>Staff Name</th></tr></thead>
             <tbody id="schedule-body"></tbody>
         </table>
     </div>
 
     <div class="history-section">
-        <h3 style="margin:0; font-size: 1rem; color: #1e293b;">Last 4 Weeks History</h3>
-        <div id="history-container" class="history-grid"></div>
+        <h3>Cloud History (Automatically Synchronized)</h3>
+        <div id="history-container" class="history-grid">Loading cloud data...</div>
     </div>
 </div>
 
 <script>
-    // --- CONFIGURATION ---
-    const EMAIL_TO = [
-        "uche@lifecardcompany.com", "accounts@lifecardcompany.com", 
-        "blessingjoy@lifecardcompany.com", "ikechukwu@lifecardcompany.com", 
-        "Ayomide@lifecardcompany.com", "bamilizy1@gmail.com", 
-        "paschalinechigoziemegwumba@gmail.com", "bendeborah1@gmail.com", 
-        "esther@lifecardcompany.com"
-    ].join(",");
-    
+    // --- 1. CONFIGURATION ---
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyySx_LAeMZ_wiO6f3W9RffFRbmdAN5LSX7Mb5Bikc/dev"; 
+
+    const EMAIL_TO = "uche@lifecardcompany.com,accounts@lifecardcompany.com,blessingjoy@lifecardcompany.com,ikechukwu@lifecardcompany.com,Ayomide@lifecardcompany.com,bamilizy1@gmail.com,paschalinechigoziemegwumba@gmail.com,bendeborah1@gmail.com,esther@lifecardcompany.com";
     const EMAIL_CC = "Hr@lifecardcompany.com";
-
+    
     const STAFF = [
-        { name: "Blessingjoy", dept: "University" },
-        { name: "Esther", dept: "University" },
-        { name: "Paschaline", dept: "University" },
-        { name: "Deborah", dept: "Investment" },
-        { name: "Ikechukwu", dept: "Investment" },
-        { name: "Ayo", dept: "Investment" },
-        { name: "Lizzy", dept: "Investment" },
-        { name: "Juliana", dept: "Investment" }
+        { name: "Blessingjoy", dept: "University" }, { name: "Esther", dept: "University" }, { name: "Paschaline", dept: "University" },
+        { name: "Deborah", dept: "Investment" }, { name: "Ikechukwu", dept: "Investment" }, { name: "Ayo", dept: "Investment" },
+        { name: "Lizzy", dept: "Investment" }, { name: "Juliana", dept: "Investment" }
     ];
-
     const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+
     let currentWeekKey = "";
     let currentData = {};
+    let isInitialLoad = true;
 
-    // --- DATE HANDLER (Week starts Sunday) ---
+    // --- 2. DATE & UI LOGIC ---
     function getWeekRange(offsetWeeks = 0) {
         const d = new Date();
-        // Adjust to the previous Sunday
         const day = d.getDay(); 
         const diffToSun = d.getDate() - day + (offsetWeeks * 7);
-        const sunday = new Date(d.setDate(diffToSun));
-        const saturday = new Date(d.setDate(diffToSun + 6));
-        
-        const opt = { month: 'long', day: 'numeric' };
-        return `${sunday.toLocaleDateString('en-US', opt)} - ${saturday.toLocaleDateString('en-US', {day:'numeric'})}, ${saturday.getFullYear()}`;
+        const sun = new Date(new Date().setDate(diffToSun));
+        const sat = new Date(new Date().setDate(diffToSun + 6));
+        return `${sun.toLocaleDateString('en-US', {month:'long', day:'numeric'})} - ${sat.toLocaleDateString('en-US', {day:'numeric'})}, ${sat.getFullYear()}`;
     }
 
-    function getDayNumbers() {
-        const d = new Date();
-        const day = d.getDay();
-        const diffToSun = d.getDate() - day;
-        return DAYS.map((name, index) => {
-            const date = new Date(new Date().setDate(diffToSun + index + 1)); // Sunday + index + 1 = Mon, Tue...
-            return date.getDate();
-        });
-    }
-
-    // --- LOGIC ---
     function generateNew() {
         currentWeekKey = getWeekRange(0);
-        currentData = {};
-
         STAFF.forEach(s => {
-            currentData[s.name] = { 
-                Monday: "Office", Tuesday: "Home", Wednesday: "Home", Thursday: "Home", Friday: "Office" 
-            };
+            currentData[s.name] = { Monday: "Office", Tuesday: "Home", Wednesday: "Home", Thursday: "Home", Friday: "Office" };
         });
-
-        const midDays = ["Tuesday", "Wednesday", "Thursday"];
-
-        // University Dept logic
-        const shuffledUnivDays = [...midDays].sort(() => Math.random() - 0.5);
-        STAFF.filter(s => s.dept === "University").forEach((s, i) => {
-            currentData[s.name][shuffledUnivDays[i]] = "Office";
-        });
-
-        // Investment Dept logic
-        const investPool = ["Tuesday", "Wednesday", "Thursday", "Tuesday", "Wednesday"].sort(() => Math.random() - 0.5);
-        STAFF.filter(s => s.dept === "Investment").forEach((s, i) => {
-            currentData[s.name][investPool[i]] = "Office";
-        });
-
-        saveAndRender();
-    }
-
-    function saveAndRender() {
-        let history = JSON.parse(localStorage.getItem('hybrid_records_v3') || "{}");
-        history[currentWeekKey] = { data: currentData, timestamp: new Date().getTime() };
-        localStorage.setItem('hybrid_records_v3', JSON.stringify(history));
-
+        const mid = ["Tuesday", "Wednesday", "Thursday"].sort(() => Math.random() - 0.5);
+        STAFF.filter(s => s.dept === "University").forEach((s, i) => currentData[s.name][mid[i]] = "Office");
+        const inv = ["Tuesday", "Wednesday", "Thursday", "Tuesday", "Wednesday"].sort(() => Math.random() - 0.5);
+        STAFF.filter(s => s.dept === "Investment").forEach((s, i) => currentData[s.name][inv[i]] = "Office");
+        
         renderTable();
-        renderHistory();
+        autoSync(); // Trigger background sync
     }
 
     function renderTable() {
         document.getElementById('display-date-range').innerText = currentWeekKey;
-        const dayNumbers = getDayNumbers();
-        
-        // Render Header
-        const thead = document.getElementById('table-head-days');
-        thead.innerHTML = `<th>Staff Name</th>` + DAYS.map((d, i) => `<th>${d} ${dayNumbers[i]}</th>`).join("");
-
-        // Render Body
         const tbody = document.getElementById('schedule-body');
         tbody.innerHTML = "";
-
         STAFF.forEach(person => {
             const row = document.createElement('tr');
             row.innerHTML = `<td class="name-cell">${person.name}<span class="dept-label">${person.dept}</span></td>`;
-            
             DAYS.forEach(day => {
                 const status = currentData[person.name][day];
                 const td = document.createElement('td');
-                const badge = document.createElement('div');
-                badge.className = `badge ${status === 'Office' ? 'status-office' : 'status-home'}`;
-                badge.innerText = status;
-                badge.onclick = () => {
+                td.innerHTML = `<div class="badge ${status === 'Office' ? 'status-office' : 'status-home'}">${status}</div>`;
+                td.onclick = () => {
                     currentData[person.name][day] = (status === 'Office' ? 'Home' : 'Office');
-                    saveAndRender();
+                    renderTable();
+                    autoSync(); // Sync on every manual change
                 };
-                td.appendChild(badge);
                 row.appendChild(td);
             });
             tbody.appendChild(row);
@@ -299,51 +129,100 @@
         lucide.createIcons();
     }
 
-    function renderHistory() {
-        const container = document.getElementById('history-container');
-        container.innerHTML = "";
-        const history = JSON.parse(localStorage.getItem('hybrid_records_v3') || "{}");
-        
-        const sortedKeys = Object.keys(history)
-            .sort((a, b) => history[b].timestamp - history[a].timestamp)
-            .slice(0, 4);
+    // --- 3. AUTOMATED CLOUD SYNC ---
+    async function autoSync() {
+        const statusEl = document.getElementById('sync-status');
+        statusEl.className = "syncing";
+        statusEl.innerHTML = `<i data-lucide="refresh-cw" class="spin" size="14"></i> Saving to Cloud...`;
+        lucide.createIcons();
 
-        sortedKeys.forEach(key => {
-            const card = document.createElement('div');
-            card.className = `history-card ${key === currentWeekKey ? 'active' : ''}`;
-            card.onclick = () => {
-                currentWeekKey = key;
-                currentData = history[key].data;
-                renderTable();
-                renderHistory();
-            };
-            card.innerHTML = `<i data-lucide="calendar"></i><div><div class="history-info">${key}</div><div class="history-sub">Preview Schedule</div></div>`;
-            container.appendChild(card);
-        });
+        try {
+            await fetch(SCRIPT_URL, {
+                method: "POST",
+                body: JSON.stringify({
+                    weekKey: currentWeekKey,
+                    timestamp: new Date().toISOString(),
+                    data: currentData
+                })
+            });
+            statusEl.className = "synced";
+            statusEl.innerHTML = `<i data-lucide="cloud-check" size="14"></i> All changes saved`;
+            loadHistory(false); // Refresh history list silently
+        } catch (e) {
+            statusEl.innerHTML = `<i data-lucide="alert-circle" size="14"></i> Sync Error`;
+        }
         lucide.createIcons();
     }
 
-    // --- SHARING ---
+    async function loadHistory(updateTable = true) {
+        const container = document.getElementById('history-container');
+        try {
+            const resp = await fetch(SCRIPT_URL);
+            const history = await resp.json();
+            
+            if (history.length === 0 && updateTable) {
+                generateNew();
+                return;
+            }
+
+            container.innerHTML = "";
+            const currentWeek = getWeekRange(0);
+            let foundCurrentWeek = false;
+
+            history.forEach(item => {
+                if (item.weekKey === currentWeek) foundCurrentWeek = true;
+                
+                const card = document.createElement('div');
+                card.className = `history-card ${item.weekKey === currentWeekKey ? 'active' : ''}`;
+                card.onclick = () => {
+                    currentWeekKey = item.weekKey;
+                    currentData = item.data;
+                    renderTable();
+                    updateHistoryUI();
+                };
+                card.innerHTML = `<i data-lucide="calendar"></i><div><div class="history-info">${item.weekKey}</div><div class="history-sub">Click to load</div></div>`;
+                container.appendChild(card);
+            });
+
+            // Auto-load current week if it exists, otherwise generate it
+            if (updateTable) {
+                if (foundCurrentWeek) {
+                    const currentEntry = history.find(h => h.weekKey === currentWeek);
+                    currentWeekKey = currentEntry.weekKey;
+                    currentData = currentEntry.data;
+                    renderTable();
+                } else {
+                    generateNew();
+                }
+            }
+            lucide.createIcons();
+        } catch (e) {
+            container.innerText = "Check your Google Script URL configuration.";
+        }
+    }
+
+    function updateHistoryUI() {
+        document.querySelectorAll('.history-card').forEach(c => {
+            c.classList.toggle('active', c.innerText.includes(currentWeekKey));
+        });
+    }
+
+    // --- 4. SHARING ---
     async function shareWhatsApp() {
-        const area = document.getElementById('capture-zone');
-        const canvas = await html2canvas(area, { scale: 2 });
-        canvas.toBlob(async (blob) => {
-            const file = new File([blob], `Schedule_${currentWeekKey}.png`, { type: 'image/png' });
+        const canvas = await html2canvas(document.getElementById('capture-zone'), { scale: 2 });
+        canvas.toBlob(async blob => {
+            const file = new File([blob], `Schedule.png`, { type: 'image/png' });
             if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                await navigator.share({ files: [file], title: 'Hybrid Schedule', text: `Hybrid Schedule for ${currentWeekKey}` });
+                await navigator.share({ files: [file], title: 'Schedule' });
             } else {
-                const link = document.createElement('a');
-                link.download = `Schedule_${currentWeekKey}.png`;
-                link.href = URL.createObjectURL(blob);
-                link.click();
-                alert("Download complete. Attach this image to WhatsApp.");
+                const a = document.createElement('a'); a.download = 'Schedule.png'; a.href = URL.createObjectURL(blob); a.click();
             }
         });
     }
 
     function shareEmail() {
         const subject = encodeURIComponent(`Hybrid Schedule for ${currentWeekKey}`);
-        let body = `Hello Team,\n\nHere is the hybrid work schedule for the week starting Sunday (${currentWeekKey}):\n\n`;
+        let body = `Hello Team,\n\nHere is the work schedule for ${currentWeekKey}:\n\n`;
         DAYS.forEach(day => {
             const office = STAFF.filter(s => currentData[s.name][day] === 'Office').map(s => s.name);
             body += `${day.toUpperCase()}: ${office.join(", ")}\n`;
@@ -351,24 +230,11 @@
         window.location.href = `mailto:${EMAIL_TO}?cc=${EMAIL_CC}&subject=${subject}&body=${encodeURIComponent(body)}`;
     }
 
-    function syncToSheets() {
-        alert("Sync triggered for " + currentWeekKey);
-    }
-
-    window.onload = () => {
-        const history = JSON.parse(localStorage.getItem('hybrid_records_v3') || "{}");
-        const keys = Object.keys(history);
-        if (keys.length > 0) {
-            const latest = keys.sort((a,b) => history[b].timestamp - history[a].timestamp)[0];
-            currentWeekKey = latest;
-            currentData = history[latest].data;
-            renderTable();
-            renderHistory();
-        } else {
-            generateNew();
-        }
-    };
+    window.onload = () => loadHistory(true);
 </script>
-
+<style>
+    .spin { animation: rotation 2s infinite linear; }
+    @keyframes rotation { from { transform: rotate(0deg); } to { transform: rotate(359deg); } }
+</style>
 </body>
 </html>
