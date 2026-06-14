@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Office Hybrid Schedule Manager</title>
+    <title>Team Hybrid Scheduler</title>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
@@ -32,7 +32,7 @@
             border-radius: 12px;
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
             width: 100%;
-            max-width: 1050px;
+            max-width: 1100px;
         }
 
         header {
@@ -88,7 +88,7 @@
         .name-cell {
             text-align: left;
             font-weight: 700;
-            width: 180px;
+            width: 190px;
             padding-left: 15px;
             background: #fdfdfd;
             color: #1e293b;
@@ -111,7 +111,6 @@
         .status-office { background: var(--office-bg); color: var(--office-text); border: 1px solid #bbf7d0; }
         .status-home { background: var(--home-bg); color: var(--home-text); border: 1px solid #e2e8f0; }
 
-        /* History Section */
         .history-section {
             margin-top: 30px;
             padding-top: 20px;
@@ -121,7 +120,7 @@
 
         .history-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
             gap: 15px;
             margin-top: 15px;
         }
@@ -138,17 +137,8 @@
             gap: 12px;
         }
 
-        .history-card:hover {
-            border-color: var(--primary);
-            background: #f0f7ff;
-        }
-
-        .history-card.active {
-            border-color: var(--primary);
-            background: #eff6ff;
-            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
-        }
-
+        .history-card:hover { border-color: var(--primary); background: #f0f7ff; }
+        .history-card.active { border-color: var(--primary); background: #eff6ff; box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1); }
         .history-card i { color: var(--primary); }
         .history-info { font-size: 0.85rem; font-weight: 700; color: #334155; }
         .history-sub { font-size: 0.7rem; color: #94a3b8; }
@@ -159,13 +149,13 @@
 <div class="container">
     <header>
         <div>
-            <h1 id="display-week-title">Staff Scheduler</h1>
+            <h1 id="display-week-title">Hybrid Work Schedule</h1>
             <small id="display-date-range" style="font-weight: 700; color: var(--primary);"></small>
         </div>
         <div class="controls">
-            <button class="btn-gen" onclick="generateNew()"><i data-lucide="refresh-cw" size="16"></i> Regenerate</button>
-            <button class="btn-wa" onclick="shareWhatsApp()"><i data-lucide="image" size="16"></i> Send to WhatsApp</button>
-            <button class="btn-mail" onclick="shareEmail()"><i data-lucide="mail" size="16"></i> Email</button>
+            <button class="btn-gen" onclick="generateNew()"><i data-lucide="calendar-plus" size="16"></i> New Week</button>
+            <button class="btn-wa" onclick="shareWhatsApp()"><i data-lucide="image" size="16"></i> WhatsApp Image</button>
+            <button class="btn-mail" onclick="shareEmail()"><i data-lucide="mail" size="16"></i> Email Team</button>
             <button class="btn-sync" onclick="syncToSheets()"><i data-lucide="table" size="16"></i> Sync</button>
         </div>
     </header>
@@ -173,13 +163,9 @@
     <div id="capture-zone" class="table-area">
         <table>
             <thead>
-                <tr>
+                <tr id="table-head-days">
                     <th>Staff Name</th>
-                    <th>Monday</th>
-                    <th>Tuesday</th>
-                    <th>Wednesday</th>
-                    <th>Thursday</th>
-                    <th>Friday</th>
+                    <!-- Headers injected by JS -->
                 </tr>
             </thead>
             <tbody id="schedule-body"></tbody>
@@ -187,14 +173,23 @@
     </div>
 
     <div class="history-section">
-        <h3 style="margin:0; font-size: 1rem; color: #1e293b;">Last 4 Weeks (Click to preview/share)</h3>
+        <h3 style="margin:0; font-size: 1rem; color: #1e293b;">Last 4 Weeks History</h3>
         <div id="history-container" class="history-grid"></div>
     </div>
 </div>
 
 <script>
-    // --- SETTINGS & STAFF ---
-    const EMAIL_CONFIG = { to: "management@office.com", cc: "hr@office.com" };
+    // --- CONFIGURATION ---
+    const EMAIL_TO = [
+        "uche@lifecardcompany.com", "accounts@lifecardcompany.com", 
+        "blessingjoy@lifecardcompany.com", "ikechukwu@lifecardcompany.com", 
+        "Ayomide@lifecardcompany.com", "bamilizy1@gmail.com", 
+        "paschalinechigoziemegwumba@gmail.com", "bendeborah1@gmail.com", 
+        "esther@lifecardcompany.com"
+    ].join(",");
+    
+    const EMAIL_CC = "Hr@lifecardcompany.com";
+
     const STAFF = [
         { name: "Blessingjoy", dept: "University" },
         { name: "Esther", dept: "University" },
@@ -205,30 +200,39 @@
         { name: "Lizzy", dept: "Investment" },
         { name: "Juliana", dept: "Investment" }
     ];
-    const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 
+    const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
     let currentWeekKey = "";
     let currentData = {};
 
-    // --- DATE HANDLER ---
-    // Standardizes dates to current or relative week (June 8 - 12, 2026 format)
-    function getWeekKey(offsetWeeks = 0) {
+    // --- DATE HANDLER (Week starts Sunday) ---
+    function getWeekRange(offsetWeeks = 0) {
         const d = new Date();
-        const day = d.getDay();
-        const diff = d.getDate() - day + (day === 0 ? -6 : 1) + (offsetWeeks * 7);
-        const monday = new Date(d.setDate(diff));
-        const friday = new Date(d.setDate(diff + 4));
+        // Adjust to the previous Sunday
+        const day = d.getDay(); 
+        const diffToSun = d.getDate() - day + (offsetWeeks * 7);
+        const sunday = new Date(d.setDate(diffToSun));
+        const saturday = new Date(d.setDate(diffToSun + 6));
         
         const opt = { month: 'long', day: 'numeric' };
-        return `${monday.toLocaleDateString('en-US', opt)} - ${friday.toLocaleDateString('en-US', {day:'numeric'})}, ${friday.getFullYear()}`;
+        return `${sunday.toLocaleDateString('en-US', opt)} - ${saturday.toLocaleDateString('en-US', {day:'numeric'})}, ${saturday.getFullYear()}`;
     }
 
-    // --- SCHEDULING LOGIC ---
+    function getDayNumbers() {
+        const d = new Date();
+        const day = d.getDay();
+        const diffToSun = d.getDate() - day;
+        return DAYS.map((name, index) => {
+            const date = new Date(new Date().setDate(diffToSun + index + 1)); // Sunday + index + 1 = Mon, Tue...
+            return date.getDate();
+        });
+    }
+
+    // --- LOGIC ---
     function generateNew() {
-        currentWeekKey = getWeekKey(0); // Always generate for current week
+        currentWeekKey = getWeekRange(0);
         currentData = {};
 
-        // Default everyone to Office on Mon/Fri, and "Home" elsewhere
         STAFF.forEach(s => {
             currentData[s.name] = { 
                 Monday: "Office", Tuesday: "Home", Wednesday: "Home", Thursday: "Home", Friday: "Office" 
@@ -237,13 +241,13 @@
 
         const midDays = ["Tuesday", "Wednesday", "Thursday"];
 
-        // University Dept logic: 1 person in office per day (Tue, Wed, Thu)
+        // University Dept logic
         const shuffledUnivDays = [...midDays].sort(() => Math.random() - 0.5);
         STAFF.filter(s => s.dept === "University").forEach((s, i) => {
             currentData[s.name][shuffledUnivDays[i]] = "Office";
         });
 
-        // Investment Dept logic: Distributed coverage (at least 1-2 per day)
+        // Investment Dept logic
         const investPool = ["Tuesday", "Wednesday", "Thursday", "Tuesday", "Wednesday"].sort(() => Math.random() - 0.5);
         STAFF.filter(s => s.dept === "Investment").forEach((s, i) => {
             currentData[s.name][investPool[i]] = "Office";
@@ -253,10 +257,9 @@
     }
 
     function saveAndRender() {
-        // Save to LocalStorage keyed by the week string (one per week)
-        let history = JSON.parse(localStorage.getItem('hybrid_records_v2') || "{}");
+        let history = JSON.parse(localStorage.getItem('hybrid_records_v3') || "{}");
         history[currentWeekKey] = { data: currentData, timestamp: new Date().getTime() };
-        localStorage.setItem('hybrid_records_v2', JSON.stringify(history));
+        localStorage.setItem('hybrid_records_v3', JSON.stringify(history));
 
         renderTable();
         renderHistory();
@@ -264,6 +267,13 @@
 
     function renderTable() {
         document.getElementById('display-date-range').innerText = currentWeekKey;
+        const dayNumbers = getDayNumbers();
+        
+        // Render Header
+        const thead = document.getElementById('table-head-days');
+        thead.innerHTML = `<th>Staff Name</th>` + DAYS.map((d, i) => `<th>${d} ${dayNumbers[i]}</th>`).join("");
+
+        // Render Body
         const tbody = document.getElementById('schedule-body');
         tbody.innerHTML = "";
 
@@ -277,13 +287,10 @@
                 const badge = document.createElement('div');
                 badge.className = `badge ${status === 'Office' ? 'status-office' : 'status-home'}`;
                 badge.innerText = status;
-                
-                // Allow manual overrides
                 badge.onclick = () => {
                     currentData[person.name][day] = (status === 'Office' ? 'Home' : 'Office');
                     saveAndRender();
                 };
-                
                 td.appendChild(badge);
                 row.appendChild(td);
             });
@@ -295,9 +302,8 @@
     function renderHistory() {
         const container = document.getElementById('history-container');
         container.innerHTML = "";
-        const history = JSON.parse(localStorage.getItem('hybrid_records_v2') || "{}");
+        const history = JSON.parse(localStorage.getItem('hybrid_records_v3') || "{}");
         
-        // Sort by timestamp and take last 4 weeks
         const sortedKeys = Object.keys(history)
             .sort((a, b) => history[b].timestamp - history[a].timestamp)
             .slice(0, 4);
@@ -305,83 +311,59 @@
         sortedKeys.forEach(key => {
             const card = document.createElement('div');
             card.className = `history-card ${key === currentWeekKey ? 'active' : ''}`;
-            card.onclick = () => loadFromHistory(key);
-            card.innerHTML = `
-                <i data-lucide="calendar-check"></i>
-                <div>
-                    <div class="history-info">${key}</div>
-                    <div class="history-sub">Click to preview</div>
-                </div>
-            `;
+            card.onclick = () => {
+                currentWeekKey = key;
+                currentData = history[key].data;
+                renderTable();
+                renderHistory();
+            };
+            card.innerHTML = `<i data-lucide="calendar"></i><div><div class="history-info">${key}</div><div class="history-sub">Preview Schedule</div></div>`;
             container.appendChild(card);
         });
         lucide.createIcons();
     }
 
-    function loadFromHistory(key) {
-        const history = JSON.parse(localStorage.getItem('hybrid_records_v2') || "{}");
-        if (history[key]) {
-            currentWeekKey = key;
-            currentData = history[key].data;
-            renderTable();
-            renderHistory();
-        }
-    }
-
-    // --- SHARING LOGIC ---
-
+    // --- SHARING ---
     async function shareWhatsApp() {
         const area = document.getElementById('capture-zone');
-        // Capture the table as a clean image
-        const canvas = await html2canvas(area, { scale: 2, backgroundColor: "#ffffff" });
+        const canvas = await html2canvas(area, { scale: 2 });
         canvas.toBlob(async (blob) => {
-            const fileName = `Schedule_${currentWeekKey.replace(/ /g,'_')}.png`;
-            const file = new File([blob], fileName, { type: 'image/png' });
-            
-            // Check if Web Share API supports file sharing
+            const file = new File([blob], `Schedule_${currentWeekKey}.png`, { type: 'image/png' });
             if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                try {
-                    await navigator.share({
-                        files: [file],
-                        title: 'Hybrid Schedule',
-                        text: `Hybrid Schedule for ${currentWeekKey}`
-                    });
-                } catch (err) {
-                    console.error("Share failed", err);
-                }
+                await navigator.share({ files: [file], title: 'Hybrid Schedule', text: `Hybrid Schedule for ${currentWeekKey}` });
             } else {
-                // Fallback: Download the image
                 const link = document.createElement('a');
-                link.download = fileName;
+                link.download = `Schedule_${currentWeekKey}.png`;
                 link.href = URL.createObjectURL(blob);
                 link.click();
-                alert("Image downloaded. You can now attach it to WhatsApp manually.");
+                alert("Download complete. Attach this image to WhatsApp.");
             }
         });
     }
 
     function shareEmail() {
         const subject = encodeURIComponent(`Hybrid Schedule for ${currentWeekKey}`);
-        let body = `Find below the office schedule for the week of ${currentWeekKey}:\n\n`;
+        let body = `Hello Team,\n\nHere is the hybrid work schedule for the week starting Sunday (${currentWeekKey}):\n\n`;
         DAYS.forEach(day => {
             const office = STAFF.filter(s => currentData[s.name][day] === 'Office').map(s => s.name);
             body += `${day.toUpperCase()}: ${office.join(", ")}\n`;
         });
-        window.location.href = `mailto:${EMAIL_CONFIG.to}?cc=${EMAIL_CONFIG.cc}&subject=${subject}&body=${encodeURIComponent(body)}`;
+        window.location.href = `mailto:${EMAIL_TO}?cc=${EMAIL_CC}&subject=${subject}&body=${encodeURIComponent(body)}`;
     }
 
     function syncToSheets() {
-        alert("Syncing " + currentWeekKey + " to Google Sheets...");
-        // Placeholder for Google Apps Script fetch call
+        alert("Sync triggered for " + currentWeekKey);
     }
 
-    // Initialize on load
     window.onload = () => {
-        const history = JSON.parse(localStorage.getItem('hybrid_records_v2') || "{}");
+        const history = JSON.parse(localStorage.getItem('hybrid_records_v3') || "{}");
         const keys = Object.keys(history);
         if (keys.length > 0) {
             const latest = keys.sort((a,b) => history[b].timestamp - history[a].timestamp)[0];
-            loadFromHistory(latest);
+            currentWeekKey = latest;
+            currentData = history[latest].data;
+            renderTable();
+            renderHistory();
         } else {
             generateNew();
         }
