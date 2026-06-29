@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Automated Office Scheduler</title>
+    <title>Lifecard Staff Hybrid Schedule</title>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
@@ -110,21 +110,29 @@
     let draggedItem = null;
 
     // --- 2. DATE & UI LOGIC ---
-    function getWeekRange(offsetWeeks = 0) {
-        const d = new Date();
-        const day = d.getDay(); 
-        const diffToSun = d.getDate() - day + (offsetWeeks * 7);
-        const mon = new Date(new Date().setDate(diffToSun + 1));
-        const fri = new Date(new Date().setDate(diffToSun + 5));
-        return `${mon.toLocaleDateString('en-US', {month:'long', day:'numeric'})} - ${fri.toLocaleDateString('en-US', {day:'numeric'})}, ${fri.getFullYear()}`;
+    function getWeekBounds(offsetWeeks = 0) {
+        const base = new Date();
+        const day = base.getDay();
+        const daysSinceMonday = (day + 6) % 7;
+        const monday = new Date(base);
+        monday.setDate(base.getDate() - daysSinceMonday + (offsetWeeks * 7));
+        monday.setHours(12, 0, 0, 0);
+
+        const friday = new Date(monday);
+        friday.setDate(monday.getDate() + 4);
+        return { monday, friday };
     }
 
-    function getDayNumbers() {
-        const d = new Date();
-        const day = d.getDay();
-        const diffToSun = d.getDate() - day;
+    function getWeekRange(offsetWeeks = 0) {
+        const { monday, friday } = getWeekBounds(offsetWeeks);
+        return `${monday.toLocaleDateString('en-US', {month:'long', day:'numeric'})} - ${friday.toLocaleDateString('en-US', {day:'numeric'})}, ${friday.getFullYear()}`;
+    }
+
+    function getDayNumbers(offsetWeeks = 0) {
+        const { monday } = getWeekBounds(offsetWeeks);
         return DAYS.map((name, index) => {
-            const date = new Date(new Date().setDate(diffToSun + index + 1));
+            const date = new Date(monday);
+            date.setDate(monday.getDate() + index);
             return date.getDate();
         });
     }
@@ -267,17 +275,18 @@
 
     // --- 4. SHARING & DOWNLOAD ---
     async function downloadImage() {
-        const canvas = await html2canvas(document.getElementById('capture-zone'), { scale: 2 });
+        const canvas = await html2canvas(document.getElementById('capture-zone'), { scale: 2, backgroundColor: '#ffffff' });
         const a = document.createElement('a');
-        a.download = `Schedule_${currentWeekKey.replace(/ /g, '_')}.png`;
-        a.href = canvas.toDataURL("image/png");
+        const fileName = `Schedule_${currentWeekKey.replace(/ /g, '_')}.jpg`;
+        a.download = fileName;
+        a.href = canvas.toDataURL("image/jpeg", 1.0);
         a.click();
     }
 
     async function shareWhatsApp() {
-        const canvas = await html2canvas(document.getElementById('capture-zone'), { scale: 2 });
+        const canvas = await html2canvas(document.getElementById('capture-zone'), { scale: 2, backgroundColor: '#ffffff' });
         canvas.toBlob(async blob => {
-            const file = new File([blob], `Schedule.png`, { type: 'image/png' });
+            const file = new File([blob], `Schedule.jpg`, { type: 'image/jpeg' });
             if (navigator.canShare && navigator.canShare({ files: [file] })) {
                 await navigator.share({ files: [file], title: 'Office Schedule', text: `Hybrid Schedule for ${currentWeekKey}` });
             } else { downloadImage(); }
