@@ -5,14 +5,14 @@ const urlParams = new URLSearchParams(window.location.search);
 const IS_ADMIN = urlParams.get('mode') === 'admin';
 
 const STAFF = [
-    { name: "Juliana", dept: "Investment" }
+    { name: "Juliana", dept: "Investment" },
     { name: "Blessingjoy", dept: "University" },
     { name: "Ikechukwu", dept: "Investment" },
     { name: "Ayo", dept: "Investment" },
     { name: "Esther", dept: "University" },
     { name: "Paschaline", dept: "University" },
     { name: "Deborah", dept: "Investment" },
-    { name: "Lizzy", dept: "Investment" },
+    { name: "Lizzy", dept: "Investment" }
 ];
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 
