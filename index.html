@@ -61,7 +61,7 @@
 <div class="container">
     <header>
         <div>
-            <h1>Hybrid Work Schedule</h1>
+            <h1>Staff Hybrid Schedule</h1>
             <small id="display-date-range" style="font-weight: 700; color: var(--primary);"></small>
             <div id="sync-status"><i data-lucide="cloud-off" size="14"></i> Offline</div>
         </div>
@@ -109,43 +109,62 @@
     let currentData = {};
     let draggedItem = null;
 
+    if (IS_ADMIN) {
+        document.getElementById('admin-controls').style.display = 'flex';
+        document.getElementById('main-body').classList.add('admin-mode');
+    }
+
     // --- 2. DATE & UI LOGIC ---
-    function getWeekBounds(offsetWeeks = 0) {
-        const base = new Date();
-        const day = base.getDay();
-        const daysSinceMonday = (day + 6) % 7;
-        const monday = new Date(base);
-        monday.setDate(base.getDate() - daysSinceMonday + (offsetWeeks * 7));
-        monday.setHours(12, 0, 0, 0);
-
-        const friday = new Date(monday);
-        friday.setDate(monday.getDate() + 4);
-        return { monday, friday };
-    }
-
     function getWeekRange(offsetWeeks = 0) {
-        const { monday, friday } = getWeekBounds(offsetWeeks);
-        return `${monday.toLocaleDateString('en-US', {month:'long', day:'numeric'})} - ${friday.toLocaleDateString('en-US', {day:'numeric'})}, ${friday.getFullYear()}`;
+        const now = new Date();
+        const day = now.getDay(); 
+        const diffToSun = now.getDate() - day + (offsetWeeks * 7);
+        
+        const monday = new Date(new Date().setDate(diffToSun + 1));
+        const friday = new Date(new Date().setDate(diffToSun + 5));
+
+        const optionsFull = { month: 'long', day: 'numeric' };
+        const optionsDayOnly = { day: 'numeric' };
+        const year = friday.getFullYear();
+
+        const monStr = monday.toLocaleDateString('en-US', optionsFull);
+        
+        // If Monday and Friday are in different months, show both months
+        if (monday.getMonth() !== friday.getMonth()) {
+            const friStr = friday.toLocaleDateString('en-US', optionsFull);
+            return `${monStr} - ${friStr}, ${year}`;
+        } else {
+            // Same month: June 29 - 30, 2026
+            const friDay = friday.toLocaleDateString('en-US', optionsDayOnly);
+            return `${monStr} - ${friDay}, ${year}`;
+        }
     }
 
-    function getDayNumbers(offsetWeeks = 0) {
-        const { monday } = getWeekBounds(offsetWeeks);
+    function getDayNumbers() {
+        const d = new Date();
+        const day = d.getDay();
+        const diffToSun = d.getDate() - day;
         return DAYS.map((name, index) => {
-            const date = new Date(monday);
-            date.setDate(monday.getDate() + index);
+            const date = new Date(new Date().setDate(diffToSun + index + 1));
             return date.getDate();
         });
     }
 
+
+     // --- 3. CORE FUNCTIONS ---
     function generateNew() {
+        if (!IS_ADMIN) return;
         currentWeekKey = getWeekRange(0);
+        currentData = {};
         STAFF.forEach(s => {
             currentData[s.name] = { Monday: "Office", Tuesday: "Home", Wednesday: "Home", Thursday: "Home", Friday: "Office" };
         });
+        
+        // Logic for University coverage
+        const univ = STAFF.filter(s => s.dept === "University");
         const mid = ["Tuesday", "Wednesday", "Thursday"].sort(() => Math.random() - 0.5);
-        STAFF.filter(s => s.dept === "University").forEach((s, i) => currentData[s.name][mid[i]] = "Office");
-        const inv = ["Tuesday", "Wednesday", "Thursday", "Tuesday", "Wednesday"].sort(() => Math.random() - 0.5);
-        STAFF.filter(s => s.dept === "Investment").forEach((s, i) => currentData[s.name][inv[i]] = "Office");
+        univ.forEach((s, i) => currentData[s.name][mid[i]] = "Office");
+
         renderTable();
         autoSync();
     }
@@ -178,7 +197,9 @@
                 badge.innerText = status;
                 badge.draggable = true;
                 
-                // DRAG EVENTS
+            // DRAG EVENTS
+            if (IS_ADMIN) {
+                badge.draggable = true;
                 badge.addEventListener('dragstart', (e) => {
                     draggedItem = { staff: person.name, day: day };
                 });
@@ -222,6 +243,7 @@
 
     // --- 3. AUTOMATED CLOUD SYNC ---
     async function autoSync() {
+        if (!IS_ADMIN) return;
         const statusEl = document.getElementById('sync-status');
         statusEl.className = "syncing";
         statusEl.innerHTML = `<i data-lucide="refresh-cw" class="spin" size="14"></i> Saving...`;
@@ -240,38 +262,32 @@
         lucide.createIcons();
     }
 
-    async function loadHistory(updateTable = true) {
-        const container = document.getElementById('history-container');
-        try {
-            const resp = await fetch(SCRIPT_URL);
-            const history = await resp.json();
-            if (history.length === 0 && updateTable) { generateNew(); return; }
-            container.innerHTML = "";
-            const currentWeekDisplay = getWeekRange(0);
-            let foundCurrentWeek = false;
-            history.forEach(item => {
-                if (item.weekKey === currentWeekDisplay) foundCurrentWeek = true;
-                const card = document.createElement('div');
-                card.className = `history-card ${item.weekKey === currentWeekKey ? 'active' : ''}`;
-                card.onclick = () => { currentWeekKey = item.weekKey; currentData = item.data; renderTable(); updateHistoryUI(); };
-                card.innerHTML = `<i data-lucide="calendar"></i><div><div class="history-info">${item.weekKey}</div><div class="history-sub">Click to load</div></div>`;
-                container.appendChild(card);
-            });
-            if (updateTable) {
-                if (foundCurrentWeek) {
-                    const currentEntry = history.find(h => h.weekKey === currentWeekDisplay);
-                    currentWeekKey = currentEntry.weekKey; currentData = currentEntry.data; renderTable();
-                } else { generateNew(); }
-            }
-            lucide.createIcons();
-        } catch (e) { container.innerText = "Check Google Script URL."; }
-    }
-
-    function updateHistoryUI() {
-        document.querySelectorAll('.history-card').forEach(c => {
-            c.classList.toggle('active', c.innerText.includes(currentWeekKey));
-        });
-    }
+        async function loadHistory(updateTable = true) {
+            const container = document.getElementById('history-container');
+            try {
+                const resp = await fetch(SCRIPT_URL);
+                const history = await resp.json();
+                if (history.length === 0 && updateTable) { if(IS_ADMIN) generateNew(); return; }
+                container.innerHTML = "";
+                const currentWeekDisplay = getWeekRange(0);
+                let foundCurrentWeek = false;
+                history.forEach(item => {
+                    if (item.weekKey === currentWeekDisplay) foundCurrentWeek = true;
+                    const card = document.createElement('div');
+                    card.className = `history-card ${item.weekKey === currentWeekKey ? 'active' : ''}`;
+                    card.onclick = () => { currentWeekKey = item.weekKey; currentData = item.data; renderTable(); };
+                    card.innerHTML = `<i data-lucide="calendar"></i><div><div class="history-info">${item.weekKey}</div><div class="history-sub">Click to load</div></div>`;
+                    container.appendChild(card);
+                });
+                if (updateTable) {
+                    if (foundCurrentWeek) {
+                        const currentEntry = history.find(h => h.weekKey === currentWeekDisplay);
+                        currentWeekKey = currentEntry.weekKey; currentData = currentEntry.data; renderTable();
+                    } else if (IS_ADMIN) { generateNew(); }
+                }
+                lucide.createIcons();
+            } catch (e) { container.innerText = "History unavailable."; }
+        }
 
     // --- 4. SHARING & DOWNLOAD ---
     async function downloadImage() {
