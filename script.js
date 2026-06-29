@@ -1,18 +1,20 @@
 // --- 1. CONFIGURATION ---
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzGTVCXWxFSC9ztoOR1hljQ5moSFvVOg6DiB2bMbRsKb3W6r1-nPQM113UKqxxcLQnnWg/exec"; 
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzGTVCXWxFSC9ztoOR1hljQ5moSFvVOg6DiB2bMbRsKb3W6r1-nPQM113UKqxxcLQnnWg/exec";
+const STORAGE_KEY = "lifecard-hybrid-schedule-backup";
+const HISTORY_STORAGE_KEY = "lifecard-hybrid-schedule-history";
 
 const urlParams = new URLSearchParams(window.location.search);
-const IS_ADMIN = urlParams.get('mode') === 'admin';
+const IS_ADMIN = urlParams.get('mode') !== 'viewer';
 
 const STAFF = [
     { name: "Juliana", dept: "Investment" },
     { name: "Blessingjoy", dept: "University" },
     { name: "Ikechukwu", dept: "Investment" },
-    { name: "Ayo", dept: "Investment" },
+    { name: "Ayomide", dept: "Investment" },
     { name: "Esther", dept: "University" },
     { name: "Paschaline", dept: "University" },
     { name: "Deborah", dept: "Investment" },
-    { name: "Lizzy", dept: "Investment" }
+    { name: "Elizabeth", dept: "Investment" }
 ];
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 
@@ -20,48 +22,143 @@ let currentWeekKey = "";
 let currentData = {};
 let draggedItem = null;
 
+function createDefaultScheduleData() {
+    const data = {};
+    STAFF.forEach(s => {
+        data[s.name] = { Monday: "Office", Tuesday: "Home", Wednesday: "Home", Thursday: "Home", Friday: "Office" };
+    });
+    return data;
+}
+
+function ensureScheduleData(data) {
+    const normalized = data && typeof data === 'object' ? data : {};
+    const fallback = createDefaultScheduleData();
+
+    STAFF.forEach(person => {
+        if (!normalized[person.name] || typeof normalized[person.name] !== 'object') {
+            normalized[person.name] = { ...fallback[person.name] };
+        }
+        DAYS.forEach(day => {
+            if (!normalized[person.name][day]) {
+                normalized[person.name][day] = fallback[person.name][day];
+            }
+        });
+    });
+
+    return normalized;
+}
+
 // Initialize
 if (IS_ADMIN) {
     document.getElementById('admin-controls').style.display = 'flex';
     document.getElementById('main-body').classList.add('admin-mode');
 }
 
-// --- 2. DATE LOGIC (Month Rollover Corrected) ---
-function getWeekRange(offsetWeeks = 0) {
-    const d = new Date();
-    const day = d.getDay(); 
-    const diffToSun = d.getDate() - day + (offsetWeeks * 7);
-    const mon = new Date(new Date().setDate(diffToSun + 1));
-    const fri = new Date(new Date().setDate(diffToSun + 5));
-    
-    const optionsFull = { month: 'long', day: 'numeric' };
-    const optionsDay = { day: 'numeric' };
-    const year = fri.getFullYear();
-
-    if (mon.getMonth() !== fri.getMonth()) {
-        // Different months: June 29 - July 3, 2026
-        return `${mon.toLocaleDateString('en-US', optionsFull)} - ${fri.toLocaleDateString('en-US', optionsFull)}, ${year}`;
+function loadLocalBackup() {
+    try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (!saved) return null;
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.weekKey && parsed.data) return parsed;
+    } catch (e) {
+        console.warn('Unable to read local backup:', e);
     }
-    // Same month: June 8 - 12, 2026
-    return `${mon.toLocaleDateString('en-US', optionsFull)} - ${fri.getDate()}, ${year}`;
+    return null;
 }
 
-function getDayNumbers() {
-    const d = new Date();
-    const day = d.getDay();
-    const diffToSun = d.getDate() - day;
-    return DAYS.map((_, i) => new Date(new Date().setDate(diffToSun + i + 1)).getDate());
+function saveLocalBackup(weekKey, data) {
+    try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ weekKey, data, timestamp: new Date().toISOString() }));
+    } catch (e) {
+        console.warn('Unable to save local backup:', e);
+    }
+}
+
+function loadLocalHistory() {
+    try {
+        const saved = localStorage.getItem(HISTORY_STORAGE_KEY);
+        if (!saved) return [];
+        const parsed = JSON.parse(saved);
+        return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+        console.warn('Unable to read local history:', e);
+        return [];
+    }
+}
+
+function saveLocalHistory(entry) {
+    const history = loadLocalHistory();
+    const merged = history.filter(item => item.weekKey !== entry.weekKey);
+    merged.unshift(entry);
+    const trimmed = merged.slice(0, 20);
+
+    try {
+        localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(trimmed));
+    } catch (e) {
+        console.warn('Unable to save local history:', e);
+    }
+}
+
+function mergeHistory(remoteHistory, localHistory) {
+    const map = new Map();
+    [...remoteHistory, ...localHistory].forEach(item => {
+        if (!item || !item.weekKey || !item.data) return;
+        const current = map.get(item.weekKey);
+        const itemTime = new Date(item.timestamp || 0).getTime();
+        if (!current || itemTime > new Date(current.timestamp || 0).getTime()) {
+            map.set(item.weekKey, item);
+        }
+    });
+
+    return Array.from(map.values()).sort((a, b) => {
+        return new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime();
+    });
+}
+
+// --- 2. DATE LOGIC (Bulletproof Monday-Friday Range) ---
+function getWeekDates(offsetWeeks = 0, baseDate = new Date()) {
+    const date = new Date(baseDate);
+    date.setHours(12, 0, 0, 0);
+
+    const day = date.getDay();
+    const diffToMonday = (day + 6) % 7;
+    const monday = new Date(date);
+    monday.setDate(date.getDate() - diffToMonday + (offsetWeeks * 7));
+
+    const friday = new Date(monday);
+    friday.setDate(monday.getDate() + 4);
+
+    return { monday, friday };
+}
+
+function getWeekRange(offsetWeeks = 0) {
+    const { monday, friday } = getWeekDates(offsetWeeks);
+    const sameMonth = monday.getMonth() === friday.getMonth();
+    const sameYear = monday.getFullYear() === friday.getFullYear();
+
+    const startText = monday.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+    const endText = friday.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: sameYear ? undefined : 'numeric' });
+
+    if (sameMonth && sameYear) {
+        return `${startText} - ${friday.getDate()}, ${friday.getFullYear()}`;
+    }
+
+    return `${startText} - ${endText}`;
+}
+
+function getDayNumbers(offsetWeeks = 0) {
+    const { monday } = getWeekDates(offsetWeeks);
+    return DAYS.map((_, i) => {
+        const day = new Date(monday);
+        day.setDate(monday.getDate() + i);
+        return day.getDate();
+    });
 }
 
 // --- 3. CORE ENGINE ---
 function generateNew() {
-    if (!IS_ADMIN) return;
     currentWeekKey = getWeekRange(0);
-    currentData = {};
-    
-    STAFF.forEach(s => {
-        currentData[s.name] = { Monday: "Office", Tuesday: "Home", Wednesday: "Home", Thursday: "Home", Friday: "Office" };
-    });
+    currentData = createDefaultScheduleData();
 
     // Univ coverage: exactly 1 per mid-day
     const univ = STAFF.filter(s => s.dept === "University");
@@ -78,25 +175,27 @@ function generateNew() {
 }
 
 function renderTable() {
+    currentData = ensureScheduleData(currentData);
+    currentWeekKey = currentWeekKey || getWeekRange(0);
     document.getElementById('display-date-range').innerText = currentWeekKey;
     const dayNums = getDayNumbers();
     const thead = document.getElementById('table-head-days');
-    thead.innerHTML = `<th class="name-cell">Staff Name</th>` + 
-                     DAYS.map((d, i) => `<th>${d} ${dayNums[i]}</th>`).join("") + 
-                     `<th class="counter-header" data-html2canvas-ignore>Home Days</th>`;
+    thead.innerHTML = `<th class="name-cell">Staff Name</th>` +
+        DAYS.map((d, i) => `<th>${d} ${dayNums[i]}</th>`).join("") +
+        `<th class="counter-header" data-html2canvas-ignore>Home Days</th>`;
 
     const tbody = document.getElementById('schedule-body');
     tbody.innerHTML = "";
-    
+
     STAFF.forEach(person => {
         const row = document.createElement('tr');
         row.innerHTML = `<td class="name-cell">${person.name}<span class="dept-label">${person.dept}</span></td>`;
-        
+
         let homeCount = 0;
         DAYS.forEach(day => {
             const status = currentData[person.name][day];
             if (status === 'Home') homeCount++;
-            
+
             const td = document.createElement('td');
             td.dataset.staff = person.name;
             td.dataset.day = day;
@@ -114,12 +213,14 @@ function renderTable() {
                         const temp = currentData[person.name][td.dataset.day];
                         currentData[person.name][td.dataset.day] = currentData[person.name][draggedItem.day];
                         currentData[person.name][draggedItem.day] = temp;
-                        renderTable(); autoSync();
+                        renderTable();
+                        autoSync();
                     }
                 });
                 badge.onclick = () => {
                     currentData[person.name][day] = (status === 'Office' ? 'Home' : 'Office');
-                    renderTable(); autoSync();
+                    renderTable();
+                    autoSync();
                 };
             }
             td.appendChild(badge);
@@ -139,49 +240,95 @@ function renderTable() {
 
 // --- 4. CLOUD & EXPORT ---
 async function autoSync() {
-    if (!IS_ADMIN) return;
     const statusEl = document.getElementById('sync-status');
+    saveLocalBackup(currentWeekKey, currentData);
+    saveLocalHistory({ weekKey: currentWeekKey, data: currentData, timestamp: new Date().toISOString() });
+
+    if (!IS_ADMIN) return;
+
     statusEl.innerHTML = `<i data-lucide="refresh-cw" class="spin" size="12"></i> Saving to cloud...`;
     lucide.createIcons();
+
     try {
-        await fetch(SCRIPT_URL, { 
-            method: "POST", 
+        const response = await fetch(SCRIPT_URL, {
+            method: "POST",
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ weekKey: currentWeekKey, timestamp: new Date().toISOString(), data: currentData })
         });
+
+        if (!response.ok) throw new Error('Cloud sync failed');
+
         statusEl.innerHTML = `<i data-lucide="cloud-check" size="12"></i> Synced with Google Sheets`;
-        loadHistory(false);
-    } catch (e) { statusEl.innerHTML = `Sync Error`; }
+        await loadHistory(false);
+    } catch (e) {
+        statusEl.innerHTML = `<i data-lucide="wifi-off" size="12"></i> Saved locally (offline)`;
+    }
     lucide.createIcons();
 }
 
 async function loadHistory(updateTable = true) {
     const container = document.getElementById('history-container');
+    const localHistory = loadLocalHistory();
+    const backup = loadLocalBackup();
+
     try {
         const resp = await fetch(SCRIPT_URL);
-        const history = await resp.json();
-        if (history.length === 0 && updateTable) { if(IS_ADMIN) generateNew(); return; }
-        
-        container.innerHTML = "";
-        const currentRange = getWeekRange(0);
-        let foundCurrent = false;
+        if (!resp.ok) throw new Error('Cloud history unavailable');
 
+        const remoteHistory = await resp.json();
+        const history = mergeHistory(Array.isArray(remoteHistory) ? remoteHistory : [], localHistory);
+
+        container.innerHTML = "";
         history.forEach(item => {
-            if (item.weekKey === currentRange) foundCurrent = true;
             const card = document.createElement('div');
             card.className = `history-card ${item.weekKey === currentWeekKey ? 'active' : ''}`;
-            card.onclick = () => { currentWeekKey = item.weekKey; currentData = item.data; renderTable(); };
+            card.onclick = () => {
+                currentWeekKey = item.weekKey;
+                currentData = ensureScheduleData(item.data);
+                renderTable();
+            };
             card.innerHTML = `<i data-lucide="calendar"></i><div class="history-info">${item.weekKey}</div>`;
             container.appendChild(card);
         });
 
         if (updateTable) {
-            if (foundCurrent) {
-                const latest = history.find(h => h.weekKey === currentRange);
-                currentWeekKey = latest.weekKey; currentData = latest.data; renderTable();
-            } else if (IS_ADMIN) { generateNew(); }
+            const currentRange = getWeekRange(0);
+            const latest = history.find(item => item.weekKey === currentRange) || history[0] || backup;
+            if (latest) {
+                currentWeekKey = latest.weekKey;
+                currentData = ensureScheduleData(latest.data);
+                renderTable();
+            } else if (IS_ADMIN) {
+                generateNew();
+            }
         }
-        lucide.createIcons();
-    } catch (e) { container.innerHTML = "<p>Cloud history currently unavailable.</p>"; }
+    } catch (e) {
+        const history = localHistory.length > 0 ? localHistory : backup ? [backup] : [];
+        container.innerHTML = "";
+        history.forEach(item => {
+            const card = document.createElement('div');
+            card.className = `history-card ${item.weekKey === currentWeekKey ? 'active' : ''}`;
+            card.onclick = () => {
+                currentWeekKey = item.weekKey;
+                currentData = ensureScheduleData(item.data);
+                renderTable();
+            };
+            card.innerHTML = `<i data-lucide="calendar"></i><div class="history-info">${item.weekKey}</div>`;
+            container.appendChild(card);
+        });
+
+        if (updateTable) {
+            if (backup) {
+                currentWeekKey = backup.weekKey;
+                currentData = ensureScheduleData(backup.data);
+                renderTable();
+            } else if (IS_ADMIN) {
+                generateNew();
+            }
+        }
+    }
+
+    lucide.createIcons();
 }
 
 async function downloadImage() {
@@ -205,6 +352,7 @@ async function shareWhatsApp() {
 }
 
 function shareGmail() {
+    currentData = ensureScheduleData(currentData);
     const subject = encodeURIComponent(`Hybrid Schedule: ${currentWeekKey}`);
     let body = `Hello Team,\n\nHere is the schedule for ${currentWeekKey}:\n\n`;
     STAFF.forEach(s => {
