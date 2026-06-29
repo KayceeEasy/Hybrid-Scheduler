@@ -2,326 +2,57 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lifecard Staff Hybrid Schedule</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Lifecard Hybrid Schedule</title>
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <link rel="stylesheet" href="style.css">
+    <!-- Libraries -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <style>
-        :root { 
-            --primary: #2563eb; 
-            --office-bg: #dcfce7; 
-            --office-text: #166534; 
-            --home-bg: #f77979; /* Fixed color for readability */
-            --home-text: #000000; 
-            --border: #e2e8f0; 
-            --error: #ef4444; 
-            --success: #22c55e;
-        }
-        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
-        .container { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); width: 100%; max-width: 1150px; }
-        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; border-bottom: 2px solid var(--border); padding-bottom: 1rem; }
-        .controls { display: flex; gap: 10px; flex-wrap: wrap; }
-        button { padding: 10px 16px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 8px; font-size: 0.85rem; transition: 0.2s; }
-        .btn-gen { background: var(--primary); color: white; }
-        .btn-wa { background: #25d366; color: white; }
-        .btn-mail { background: #ea4335; color: white; }
-        .btn-dl { background: #64748b; color: white; }
-        .table-area { background: white; padding: 15px; border-radius: 8px; }
-        table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-        th { background: #f8fafc; padding: 12px; border: 1px solid var(--border); font-size: 0.75rem; text-transform: uppercase; color: #64748b; }
-        td { padding: 8px; border: 1px solid var(--border); text-align: center; position: relative; }
-        .name-cell { text-align: left; font-weight: 700; width: 180px; padding-left: 15px; background: #fdfdfd; }
-        .dept-label { font-size: 0.65rem; font-weight: 400; color: #94a3b8; display: block; }
-        .badge { display: inline-block; padding: 10px 0; width: 90%; border-radius: 6px; font-size: 0.8rem; font-weight: 600; cursor: grab; transition: 0.2s; user-select: none; }
-        .badge:active { cursor: grabbing; }
-        .status-office { background: var(--office-bg); color: var(--office-text); border: 1px solid #bbf7d0; }
-        .status-home { background: var(--home-bg); color: var(--home-text); border: 1px solid #e2e8f0; }
-        
-        /* Counter Column */
-        .counter-cell { width: 90px; font-weight: 800; border-left: 3px solid var(--border) !important; }
-        .counter-val { font-size: 1.2rem; display: block; }
-        .count-ok { color: var(--success); }
-        .count-bad { color: var(--error); }
-        .counter-label { font-size: 0.6rem; text-transform: uppercase; color: #64748b; display: block; font-weight: 400; }
-
-        .history-section { margin-top: 30px; padding-top: 20px; border-top: 2px solid var(--border); width: 100%; }
-        .history-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 15px; margin-top: 15px; }
-        .history-card { background: #fff; border: 1px solid var(--border); padding: 12px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 12px; }
-        .history-card.active { border-color: var(--primary); background: #eff6ff; }
-        #sync-status { font-size: 0.75rem; font-weight: 600; display: flex; align-items: center; gap: 5px; margin-top: 5px; }
-        .syncing { color: var(--primary); }
-        .synced { color: #166534; }
-        .spin { animation: rotation 2s infinite linear; }
-        @keyframes rotation { from { transform: rotate(0deg); } to { transform: rotate(359deg); } }
-        .drag-over { background-color: #ebf4ff !important; outline: 2px dashed var(--primary); }
-    </style>
 </head>
-<body>
+<body id="main-body">
 
 <div class="container">
     <header>
-        <div>
+        <div class="brand">
             <h1>Staff Hybrid Schedule</h1>
-            <small id="display-date-range" style="font-weight: 700; color: var(--primary);"></small>
-            <div id="sync-status"><i data-lucide="cloud-off" size="14"></i> Offline</div>
+            <small id="display-date-range"></small>
+            <div id="sync-status"></div>
         </div>
-        <div class="controls">
-            <button class="btn-gen" onclick="generateNew()"><i data-lucide="refresh-cw" size="16"></i> Regenerate</button>
-            <button class="btn-dl" onclick="downloadImage()"><i data-lucide="download" size="16"></i> Download</button>
-            <button class="btn-wa" onclick="shareWhatsApp()"><i data-lucide="image" size="16"></i> WhatsApp</button>
-            <button class="btn-mail" onclick="shareGmail()"><i data-lucide="mail" size="16"></i> Gmail</button>
+        
+        <div id="admin-controls">
+            <button class="btn-gen" onclick="generateNew()"><i data-lucide="refresh-cw"></i> Regenerate</button>
+            <button class="btn-dl" onclick="downloadImage()"><i data-lucide="download"></i> Download JPG</button>
+            <button class="btn-wa" onclick="shareWhatsApp()"><i data-lucide="image"></i> WhatsApp</button>
+            <button class="btn-mail" onclick="shareGmail()"><i data-lucide="mail"></i> Gmail</button>
         </div>
     </header>
 
-    <div id="capture-zone" class="table-area">
-        <table>
-            <thead>
-                <tr id="table-head-days">
-                    <th>Staff Name</th>
-                    <!-- Days injected here -->
-                    <th data-html2canvas-ignore>Home Days</th>
-                </tr>
-            </thead>
-            <tbody id="schedule-body"></tbody>
-        </table>
+    <div class="table-container">
+        <div id="capture-zone" class="table-area">
+            <table>
+                <thead>
+                    <tr id="table-head-days">
+                        <th>Staff Name</th>
+                        <!-- Days injected by JS -->
+                        <th class="counter-header" data-html2canvas-ignore>Home Days</th>
+                    </tr>
+                </thead>
+                <tbody id="schedule-body">
+                    <!-- Rows injected by JS -->
+                </tbody>
+            </table>
+        </div>
     </div>
 
-    <div class="history-section">
-        <h3>History</h3>
-        <div id="history-container" class="history-grid">Loading cloud data...</div>
-    </div>
+    <section class="history-section">
+        <h3>Schedule History</h3>
+        <div id="history-container" class="history-grid">
+            <p class="loading-text">Synchronizing with cloud...</p>
+        </div>
+    </section>
 </div>
 
-<script>
-    // --- 1. CONFIGURATION ---
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzGTVCXWxFSC9ztoOR1hljQ5moSFvVOg6DiB2bMbRsKb3W6r1-nPQM113UKqxxcLQnnWg/exec"; 
-    const EMAIL_TO = "uche@lifecardcompany.com,accounts@lifecardcompany.com,blessingjoy@lifecardcompany.com,ikechukwu@lifecardcompany.com,Ayomide@lifecardcompany.com,bamilizy1@gmail.com,paschalinechigoziemegwumba@gmail.com,bendeborah1@gmail.com,esther@lifecardcompany.com";
-    const EMAIL_CC = "Hr@lifecardcompany.com";
-    
-    const STAFF = [
-        { name: "Julianah", dept: "Investment" }, { name: "Blessingjoy", dept: "University" }, { name: "Esther", dept: "University" },
-        { name: "Paschaline", dept: "University" }, { name: "Ikechukwu", dept: "Investment" }, { name: "Ayomide", dept: "Investment" },
-        { name: "Deborah", dept: "Investment" }, { name: "Elizabeth", dept: "Investment" }
-    ];
-    const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
-
-    let currentWeekKey = "";
-    let currentData = {};
-    let draggedItem = null;
-
-    if (IS_ADMIN) {
-        document.getElementById('admin-controls').style.display = 'flex';
-        document.getElementById('main-body').classList.add('admin-mode');
-    }
-
-    // --- 2. DATE & UI LOGIC ---
-    function getWeekRange(offsetWeeks = 0) {
-        const now = new Date();
-        const day = now.getDay(); 
-        const diffToSun = now.getDate() - day + (offsetWeeks * 7);
-        
-        const monday = new Date(new Date().setDate(diffToSun + 1));
-        const friday = new Date(new Date().setDate(diffToSun + 5));
-
-        const optionsFull = { month: 'long', day: 'numeric' };
-        const optionsDayOnly = { day: 'numeric' };
-        const year = friday.getFullYear();
-
-        const monStr = monday.toLocaleDateString('en-US', optionsFull);
-        
-        // If Monday and Friday are in different months, show both months
-        if (monday.getMonth() !== friday.getMonth()) {
-            const friStr = friday.toLocaleDateString('en-US', optionsFull);
-            return `${monStr} - ${friStr}, ${year}`;
-        } else {
-            // Same month: June 29 - 30, 2026
-            const friDay = friday.toLocaleDateString('en-US', optionsDayOnly);
-            return `${monStr} - ${friDay}, ${year}`;
-        }
-    }
-
-    function getDayNumbers() {
-        const d = new Date();
-        const day = d.getDay();
-        const diffToSun = d.getDate() - day;
-        return DAYS.map((name, index) => {
-            const date = new Date(new Date().setDate(diffToSun + index + 1));
-            return date.getDate();
-        });
-    }
-
-
-     // --- 3. CORE FUNCTIONS ---
-    function generateNew() {
-        if (!IS_ADMIN) return;
-        currentWeekKey = getWeekRange(0);
-        currentData = {};
-        STAFF.forEach(s => {
-            currentData[s.name] = { Monday: "Office", Tuesday: "Home", Wednesday: "Home", Thursday: "Home", Friday: "Office" };
-        });
-        
-        // Logic for University coverage
-        const univ = STAFF.filter(s => s.dept === "University");
-        const mid = ["Tuesday", "Wednesday", "Thursday"].sort(() => Math.random() - 0.5);
-        univ.forEach((s, i) => currentData[s.name][mid[i]] = "Office");
-
-        renderTable();
-        autoSync();
-    }
-
-    function renderTable() {
-        document.getElementById('display-date-range').innerText = currentWeekKey;
-        const dayNums = getDayNumbers();
-        const thead = document.getElementById('table-head-days');
-        thead.innerHTML = `<th>Staff Name</th>` + DAYS.map((d, i) => `<th>${d} ${dayNums[i]}</th>`).join("") + `<th data-html2canvas-ignore>Home Days</th>`;
-
-        const tbody = document.getElementById('schedule-body');
-        tbody.innerHTML = "";
-        
-        STAFF.forEach(person => {
-            const row = document.createElement('tr');
-            row.innerHTML = `<td class="name-cell">${person.name}<span class="dept-label">${person.dept}</span></td>`;
-            
-            let homeDayCount = 0;
-
-            DAYS.forEach(day => {
-                const status = currentData[person.name][day];
-                if (status === 'Home') homeDayCount++;
-
-                const td = document.createElement('td');
-                td.dataset.staff = person.name;
-                td.dataset.day = day;
-
-                const badge = document.createElement('div');
-                badge.className = `badge ${status === 'Office' ? 'status-office' : 'status-home'}`;
-                badge.innerText = status;
-                badge.draggable = true;
-                
-            // DRAG EVENTS
-            if (IS_ADMIN) {
-                badge.draggable = true;
-                badge.addEventListener('dragstart', (e) => {
-                    draggedItem = { staff: person.name, day: day };
-                });
-                td.addEventListener('dragover', (e) => e.preventDefault());
-                td.addEventListener('dragenter', () => td.classList.add('drag-over'));
-                td.addEventListener('dragleave', () => td.classList.remove('drag-over'));
-                td.addEventListener('drop', () => {
-                    td.classList.remove('drag-over');
-                    if (draggedItem && draggedItem.staff === td.dataset.staff) {
-                        const targetDay = td.dataset.day;
-                        const temp = currentData[person.name][targetDay];
-                        currentData[person.name][targetDay] = currentData[person.name][draggedItem.day];
-                        currentData[person.name][draggedItem.day] = temp;
-                        renderTable();
-                        autoSync();
-                    }
-                });
-
-                badge.onclick = () => {
-                    currentData[person.name][day] = (status === 'Office' ? 'Home' : 'Office');
-                    renderTable();
-                    autoSync();
-                };
-                
-                td.appendChild(badge);
-                row.appendChild(td);
-            });
-
-            // COUNTER COLUMN
-            const countTd = document.createElement('td');
-            countTd.className = "counter-cell";
-            countTd.setAttribute('data-html2canvas-ignore', 'true');
-            const countClass = (homeDayCount === 2) ? 'count-ok' : 'count-bad';
-            countTd.innerHTML = `<span class="counter-val ${countClass}">${homeDayCount}</span><span class="counter-label">Home Days</span>`;
-            row.appendChild(countTd);
-
-            tbody.appendChild(row);
-        });
-        lucide.createIcons();
-    }
-
-    // --- 3. AUTOMATED CLOUD SYNC ---
-    async function autoSync() {
-        if (!IS_ADMIN) return;
-        const statusEl = document.getElementById('sync-status');
-        statusEl.className = "syncing";
-        statusEl.innerHTML = `<i data-lucide="refresh-cw" class="spin" size="14"></i> Saving...`;
-        lucide.createIcons();
-        try {
-            await fetch(SCRIPT_URL, {
-                method: "POST",
-                body: JSON.stringify({ weekKey: currentWeekKey, timestamp: new Date().toISOString(), data: currentData })
-            });
-            statusEl.className = "synced";
-            statusEl.innerHTML = `<i data-lucide="cloud-check" size="14"></i> Cloud Synced`;
-            loadHistory(false); 
-        } catch (e) {
-            statusEl.innerHTML = `<i data-lucide="alert-circle" size="14"></i> Sync Error`;
-        }
-        lucide.createIcons();
-    }
-
-        async function loadHistory(updateTable = true) {
-            const container = document.getElementById('history-container');
-            try {
-                const resp = await fetch(SCRIPT_URL);
-                const history = await resp.json();
-                if (history.length === 0 && updateTable) { if(IS_ADMIN) generateNew(); return; }
-                container.innerHTML = "";
-                const currentWeekDisplay = getWeekRange(0);
-                let foundCurrentWeek = false;
-                history.forEach(item => {
-                    if (item.weekKey === currentWeekDisplay) foundCurrentWeek = true;
-                    const card = document.createElement('div');
-                    card.className = `history-card ${item.weekKey === currentWeekKey ? 'active' : ''}`;
-                    card.onclick = () => { currentWeekKey = item.weekKey; currentData = item.data; renderTable(); };
-                    card.innerHTML = `<i data-lucide="calendar"></i><div><div class="history-info">${item.weekKey}</div><div class="history-sub">Click to load</div></div>`;
-                    container.appendChild(card);
-                });
-                if (updateTable) {
-                    if (foundCurrentWeek) {
-                        const currentEntry = history.find(h => h.weekKey === currentWeekDisplay);
-                        currentWeekKey = currentEntry.weekKey; currentData = currentEntry.data; renderTable();
-                    } else if (IS_ADMIN) { generateNew(); }
-                }
-                lucide.createIcons();
-            } catch (e) { container.innerText = "History unavailable."; }
-        }
-
-    // --- 4. SHARING & DOWNLOAD ---
-    async function downloadImage() {
-        const canvas = await html2canvas(document.getElementById('capture-zone'), { scale: 2, backgroundColor: '#ffffff' });
-        const a = document.createElement('a');
-        const fileName = `Schedule_${currentWeekKey.replace(/ /g, '_')}.jpg`;
-        a.download = fileName;
-        a.href = canvas.toDataURL("image/jpeg", 1.0);
-        a.click();
-    }
-
-    async function shareWhatsApp() {
-        const canvas = await html2canvas(document.getElementById('capture-zone'), { scale: 2, backgroundColor: '#ffffff' });
-        canvas.toBlob(async blob => {
-            const file = new File([blob], `Schedule.jpg`, { type: 'image/jpeg' });
-            if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                await navigator.share({ files: [file], title: 'Office Schedule', text: `Hybrid Schedule for ${currentWeekKey}` });
-            } else { downloadImage(); }
-        });
-    }
-
-    async function shareGmail() {
-        const subject = encodeURIComponent(`Hybrid Schedule for ${currentWeekKey}`);
-        let bodyText = `Hello Team,\n\nHere is the work schedule for the week of ${currentWeekKey}:\n\n`;
-        DAYS.forEach(day => {
-            const office = STAFF.filter(s => currentData[s.name][day] === 'Office').map(s => s.name);
-            bodyText += `${day.toUpperCase()}: ${office.join(", ")}\n`;
-        });
-        await downloadImage();
-        const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(EMAIL_TO)}&cc=${encodeURIComponent(EMAIL_CC)}&su=${subject}&body=${encodeURIComponent(bodyText)}`;
-        window.open(gmailUrl, '_blank');
-    }
-
-    window.onload = () => loadHistory(true);
-</script>
+<script src="script.js"></script>
 </body>
 </html>
