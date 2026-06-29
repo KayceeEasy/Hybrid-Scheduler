@@ -7,7 +7,7 @@ const urlParams = new URLSearchParams(window.location.search);
 const IS_ADMIN = urlParams.get('mode') !== 'viewer';
 
 const STAFF = [
-    { name: "Juliana", dept: "Investment" },
+    { name: "Julianah", dept: "Investment" },
     { name: "Blessingjoy", dept: "University" },
     { name: "Ikechukwu", dept: "Investment" },
     { name: "Ayomide", dept: "Investment" },
