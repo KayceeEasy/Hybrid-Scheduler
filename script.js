@@ -239,15 +239,55 @@ function renderTable() {
 }
 
 // --- 4. CLOUD & EXPORT ---
-async function autoSync() {
-    const statusEl = document.getElementById('sync-status');
+
+// Debounce + single-flight guards for cloud sync. Without these, clicking
+// several badges quickly fired one overlapping fetch() per click; since
+// network responses aren't guaranteed to arrive in the order the requests
+// were sent, an EARLIER click's response could land AFTER a later click's,
+// overwriting the sheet with stale data even though the UI showed "Synced"
+// (that status just reflects whichever request finished last, not
+// necessarily the one that captured your final edit).
+let syncDebounceTimer = null;
+let syncInFlight = false;
+let syncQueued = false;
+
+function autoSync() {
+    // Local backup/history are cheap and safe to do on every single edit
+    // immediately, regardless of cloud debounce timing.
     saveLocalBackup(currentWeekKey, currentData);
     saveLocalHistory({ weekKey: currentWeekKey, data: currentData, timestamp: new Date().toISOString() });
 
     if (!IS_ADMIN) return;
 
+    const statusEl = document.getElementById('sync-status');
     statusEl.innerHTML = `<i data-lucide="refresh-cw" class="spin" size="12"></i> Saving to cloud...`;
     lucide.createIcons();
+
+    // Coalesce a burst of rapid edits into a single outgoing request: reset
+    // the timer on every call, so only the LAST edit in a fast sequence
+    // actually triggers a network send, and it always sends whatever
+    // currentData is at that moment (i.e. the latest state).
+    clearTimeout(syncDebounceTimer);
+    syncDebounceTimer = setTimeout(performCloudSync, 500);
+}
+
+async function performCloudSync() {
+    if (syncInFlight) {
+        // A request is already in flight. Rather than firing a second,
+        // overlapping one (which is exactly what caused the race), just
+        // remember that another sync is needed once this one finishes.
+        syncQueued = true;
+        return;
+    }
+
+    syncInFlight = true;
+    const statusEl = document.getElementById('sync-status');
+
+    // Snapshot the data to send right now. If more edits happen while this
+    // request is in flight, they'll be captured by the queued follow-up
+    // sync below, not by mutating what's already been sent.
+    const weekKeyToSend = currentWeekKey;
+    const dataToSend = JSON.parse(JSON.stringify(currentData));
 
     try {
         // IMPORTANT: Content-Type must be a "simple" type (text/plain) to avoid
@@ -257,7 +297,7 @@ async function autoSync() {
         const response = await fetch(SCRIPT_URL, {
             method: "POST",
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify({ weekKey: currentWeekKey, timestamp: new Date().toISOString(), data: currentData })
+            body: JSON.stringify({ weekKey: weekKeyToSend, timestamp: new Date().toISOString(), data: dataToSend })
         });
 
         if (!response.ok) throw new Error('Cloud sync failed: HTTP ' + response.status);
@@ -281,6 +321,14 @@ async function autoSync() {
         statusEl.innerHTML = `<i data-lucide="wifi-off" size="12"></i> Saved locally (offline)`;
     }
     lucide.createIcons();
+
+    syncInFlight = false;
+    if (syncQueued) {
+        // Something changed while we were busy -- send it now, immediately,
+        // rather than waiting for another debounce window.
+        syncQueued = false;
+        performCloudSync();
+    }
 }
 
 async function loadHistory(updateTable = true) {
