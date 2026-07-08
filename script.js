@@ -133,16 +133,18 @@ function getWeekDates(offsetWeeks = 0, baseDate = new Date()) {
 
 function getWeekRange(offsetWeeks = 0) {
     const { monday, friday } = getWeekDates(offsetWeeks);
-    const sameMonth = monday.getMonth() === friday.getMonth();
-    const sameYear = monday.getFullYear() === friday.getFullYear();
 
+    // Always use one fully-qualified, unconditional format -- both month
+    // names spelled out, year always included -- no matter whether the
+    // week crosses a month or year boundary. This used to branch: a
+    // same-month week produced "July 6 - 10, 2026", while a same-year
+    // cross-month week produced "June 29 - July 3" with NO YEAR AT ALL.
+    // That year-less case is genuinely ambiguous to match back against on
+    // the admin backend (which week/year is it?), and was the actual cause
+    // of month-crossover weeks not showing hybrid data on the dashboard. A
+    // single, unconditional format has no ambiguity to begin with.
     const startText = monday.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
-    const endText = friday.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: sameYear ? undefined : 'numeric' });
-
-    if (sameMonth && sameYear) {
-        return `${startText} - ${friday.getDate()}, ${friday.getFullYear()}`;
-    }
-
+    const endText = friday.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
     return `${startText} - ${endText}`;
 }
 
