@@ -250,9 +250,17 @@ async function autoSync() {
     lucide.createIcons();
 
     try {
+        // IMPORTANT: Content-Type must be a "simple" type (text/plain) to avoid
+        // a CORS preflight (OPTIONS) request. Google Apps Script web apps don't
+        // handle preflight requests, so 'application/json' here causes the
+        // browser to block the POST before it's even sent -- fetch() throws
+        // almost immediately, which is why this fell back to "offline" right
+        // after briefly showing "Saving to cloud...". The body is still valid
+        // JSON text either way; doPost's JSON.parse(e.postData.contents)
+        // doesn't care what Content-Type was declared.
         const response = await fetch(SCRIPT_URL, {
             method: "POST",
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({ weekKey: currentWeekKey, timestamp: new Date().toISOString(), data: currentData })
         });
 
