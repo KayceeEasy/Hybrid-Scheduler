@@ -253,22 +253,31 @@ async function autoSync() {
         // IMPORTANT: Content-Type must be a "simple" type (text/plain) to avoid
         // a CORS preflight (OPTIONS) request. Google Apps Script web apps don't
         // handle preflight requests, so 'application/json' here causes the
-        // browser to block the POST before it's even sent -- fetch() throws
-        // almost immediately, which is why this fell back to "offline" right
-        // after briefly showing "Saving to cloud...". The body is still valid
-        // JSON text either way; doPost's JSON.parse(e.postData.contents)
-        // doesn't care what Content-Type was declared.
+        // browser to block the POST before it's even sent.
         const response = await fetch(SCRIPT_URL, {
             method: "POST",
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({ weekKey: currentWeekKey, timestamp: new Date().toISOString(), data: currentData })
         });
 
-        if (!response.ok) throw new Error('Cloud sync failed');
+        if (!response.ok) throw new Error('Cloud sync failed: HTTP ' + response.status);
+
+        // IMPORTANT: don't trust response.ok alone. Apps Script frequently
+        // returns HTTP 200 even when doPost throws internally (permissions,
+        // quota, execution errors, etc.) -- it serves its own error page as
+        // a "successful" 200 response instead of failing the request. That
+        // silently made this function report "Synced" even when nothing was
+        // actually written to the sheet, which is why a refresh appeared to
+        // "overwrite" changes that were never really saved. Explicitly
+        // parse and check the body so a malformed/error response is treated
+        // as a real failure.
+        const result = await response.json();
+        if (!result || result.ok !== true) throw new Error('Cloud sync did not confirm success: ' + JSON.stringify(result));
 
         statusEl.innerHTML = `<i data-lucide="cloud-check" size="12"></i> Synced with Google Sheets`;
         await loadHistory(false);
     } catch (e) {
+        console.error('autoSync failed:', e);
         statusEl.innerHTML = `<i data-lucide="wifi-off" size="12"></i> Saved locally (offline)`;
     }
     lucide.createIcons();
@@ -280,7 +289,11 @@ async function loadHistory(updateTable = true) {
     const backup = loadLocalBackup();
 
     try {
-        const resp = await fetch(SCRIPT_URL);
+        // Cache-bust + disable HTTP caching: without this, repeated GETs to
+        // the same Apps Script URL can be served from a cached copy instead
+        // of hitting the live script, which would also look like "changes
+        // keep reverting on refresh" even if writes are succeeding.
+        const resp = await fetch(SCRIPT_URL + '?_=' + Date.now(), { cache: 'no-store' });
         if (!resp.ok) throw new Error('Cloud history unavailable');
 
         const remoteHistory = await resp.json();
